@@ -1,0 +1,1348 @@
+{
+  "restaurant": "Little Caesars Canada",
+  "store_id": "10088",
+  "source_snapshot_date": "2026-08-14",
+  "currency": "CAD",
+  "source": "User-downloaded Little Caesars ordering menu PDF",
+  "source_url": "https://order.littlecaesars.ca/en-ca/order/delivery/stores/10088/menu/",
+  "delivery_fees_from_snapshot": {
+    "delivery_fee_cad": 5.49,
+    "service_fee_percent": 11,
+    "small_order_fee_cad": 2.0,
+    "small_order_threshold_cad": 10.0
+  },
+  "important_note": "menu_label_hints are text-derived hints only. dietary_verified=false means the agent must NOT treat an item as allergy-safe or restriction-safe without a separate trusted allergen dataset.",
+  "items": [
+    {
+      "id": "3-meat-treat-p2",
+      "name": "3 MEAT TREAT®",
+      "category": "limited_time_offers",
+      "price_cad": 9.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 1980 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 2,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        2
+      ]
+    },
+    {
+      "id": "bacon-hula-hawaiian-p3",
+      "name": "BACON HULA HAWAIIAN",
+      "category": "limited_time_offers",
+      "price_cad": 9.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 1710 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 3,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        3
+      ]
+    },
+    {
+      "id": "extra-extra-pepperoni-p3",
+      "name": "EXTRA!EXTRA!™ PEPPERONI",
+      "category": "limited_time_offers",
+      "price_cad": 9.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 1760 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 3,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        3
+      ]
+    },
+    {
+      "id": "canadian-p4",
+      "name": "CANADIAN",
+      "category": "limited_time_offers",
+      "price_cad": 9.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 1820 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 4,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        4
+      ]
+    },
+    {
+      "id": "choose-1-medium-specialty-pizza-and-1-order-of-the-crazy-bread-p5",
+      "name": "CHOOSE 1 MEDIUM SPECIALTY PIZZA AND 1 ORDER OF THE CRAZY BREAD",
+      "category": "limited_time_offers",
+      "price_cad": 13.99,
+      "pizza_slices": 8,
+      "other_pieces": 8,
+      "menu_description": "COMBO® 8 Slices + 8 Pieces Of Crazy Bread; 2820 Cals Choose your pizza",
+      "menu_label_hints": [],
+      "dietary_verified": false,
+      "source_page": 5,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        5
+      ]
+    },
+    {
+      "id": "ultimate-supreme-p5",
+      "name": "ULTIMATE SUPREME",
+      "category": "limited_time_offers",
+      "price_cad": 9.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 1750 Cals",
+      "menu_label_hints": [],
+      "dietary_verified": false,
+      "source_page": 5,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        5
+      ]
+    },
+    {
+      "id": "butter-chicken-p6",
+      "name": "BUTTER CHICKEN",
+      "category": "limited_time_offers",
+      "price_cad": 13.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 1670 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 6,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        6
+      ]
+    },
+    {
+      "id": "deep-dish-slices-n-stix-cheese-p7",
+      "name": "DEEP DISH SLICES-N-STIX® CHEESE",
+      "category": "bundles",
+      "price_cad": 6.99,
+      "pizza_slices": 2,
+      "other_pieces": null,
+      "menu_description": "2 Slices Of Deep Dish + 4 Slices Of Italian Cheese Bread; 1350 Cals",
+      "menu_label_hints": [
+        "cheese-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 7,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        7
+      ]
+    },
+    {
+      "id": "deep-dish-slices-n-stix-pepperoni-p7",
+      "name": "DEEP DISH SLICES-N-STIX® PEPPERONI",
+      "category": "bundles",
+      "price_cad": 6.99,
+      "pizza_slices": 2,
+      "other_pieces": null,
+      "menu_description": "2 Slices Of Deep Dish + 4 Slices Of Italian Cheese Bread; 1410 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 7,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        7
+      ]
+    },
+    {
+      "id": "deep-dish-slices-n-stix-bundle-p8",
+      "name": "DEEP DISH SLICES-N-STIX® BUNDLE",
+      "category": "bundles",
+      "price_cad": 13.49,
+      "pizza_slices": 4,
+      "other_pieces": 8,
+      "menu_description": "4 Slices Of Deep Dish + 8 Pieces Of Italian Cheese Bread; 2820 Cals Choose your pizza",
+      "menu_label_hints": [],
+      "dietary_verified": false,
+      "source_page": 8,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        8
+      ]
+    },
+    {
+      "name": "GLUTEN FRIENDLY PIZZA",
+      "category": "bundles",
+      "price_cad": 13.99,
+      "pizza_slices": null,
+      "other_pieces": null,
+      "pizza_cut_pieces": null,
+      "menu_description": "1020 Cals; Choose your gluten friendly pizza",
+      "menu_label_hints": [
+        "gluten-friendly-label"
+      ],
+      "dietary_verified": false,
+      "source_page": 8,
+      "source_pages": [
+        8,
+        9
+      ],
+      "id": "gluten-friendly-pizza-p8"
+    },
+    {
+      "id": "crazy-puffs-bundle-p9",
+      "name": "CRAZY PUFFS™ BUNDLE",
+      "category": "bundles",
+      "price_cad": 12.99,
+      "pizza_slices": null,
+      "other_pieces": 12,
+      "menu_description": "12 Pieces; 1740 Cals Choose your Crazy Puffs™",
+      "menu_label_hints": [],
+      "dietary_verified": false,
+      "source_page": 9,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        9
+      ]
+    },
+    {
+      "id": "3-meat-treat-pizza-crazy-puffs-bundle-p10",
+      "name": "3 MEAT TREAT PIZZA & CRAZY PUFFS™ BUNDLE",
+      "category": "bundles",
+      "price_cad": 14.99,
+      "pizza_slices": 8,
+      "other_pieces": 4,
+      "menu_description": "4 Pieces Crazy Puffs, 8 Slices Pizza; 2510-2560 Cals Choose Your Crazy Puffs™",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 10,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        10
+      ]
+    },
+    {
+      "name": "CANADIAN PIZZA & CRAZY PUFFS™ BUNDLE",
+      "category": "bundles",
+      "price_cad": 16.99,
+      "pizza_slices": 8,
+      "other_pieces": 4,
+      "pizza_cut_pieces": null,
+      "menu_description": "4 Pieces Crazy Puffs, 8 Slices Pizza; 2350-2400 Cals; Choose Your Crazy Puffs™",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 10,
+      "source_pages": [
+        10,
+        11
+      ],
+      "id": "canadian-pizza-crazy-puffs-bundle-p10"
+    },
+    {
+      "id": "hula-hawaiian-pizza-crazy-puffs-bundle-p11",
+      "name": "HULA HAWAIIAN PIZZA & CRAZY PUFFS™ BUNDLE",
+      "category": "bundles",
+      "price_cad": 16.99,
+      "pizza_slices": 8,
+      "other_pieces": 4,
+      "menu_description": "4 Pieces Crazy Puffs, 8 Slices Pizza; 2120-2170 Cals Choose Your Crazy Puffs™",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 11,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        11
+      ]
+    },
+    {
+      "name": "GAME DAY LARGE BUNDLE",
+      "category": "bundles",
+      "price_cad": 28.99,
+      "pizza_slices": null,
+      "other_pieces": null,
+      "pizza_cut_pieces": null,
+      "menu_description": "3910 Cals; Choose your sauce",
+      "menu_label_hints": [],
+      "dietary_verified": false,
+      "source_page": 12,
+      "source_pages": [
+        12,
+        13
+      ],
+      "id": "game-day-large-bundle-p12"
+    },
+    {
+      "id": "veggie-pizza-crazy-puffs-bundle-p12",
+      "name": "VEGGIE PIZZA & CRAZY PUFFS™ BUNDLE",
+      "category": "bundles",
+      "price_cad": 16.99,
+      "pizza_slices": 8,
+      "other_pieces": 4,
+      "menu_description": "8 Slices/ 4 Pieces; 2120 - 2170 Cals Choose Your Crazy Puffs™",
+      "menu_label_hints": [
+        "veggie-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 12,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        12
+      ]
+    },
+    {
+      "id": "classic-pepperoni-3-meat-treat-crazy-bread-italian-cheese-bread-p13",
+      "name": "CLASSIC PEPPERONI, 3 MEAT TREAT, CRAZY BREAD & ITALIAN CHEESE BREAD",
+      "category": "bundles",
+      "price_cad": 27.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 5760 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 13,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        13
+      ]
+    },
+    {
+      "id": "3-meat-treat-oven-roasted-caesar-wings-crazy-bread-p14",
+      "name": "3 MEAT TREAT, OVEN ROASTED CAESAR WINGS & CRAZY BREAD",
+      "category": "bundles",
+      "price_cad": 19.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 3330 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 14,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        14
+      ]
+    },
+    {
+      "id": "2-classic-pizzas-1-order-of-crazy-bread-p15",
+      "name": "2 CLASSIC PIZZAS & 1 ORDER OF CRAZY BREAD",
+      "category": "bundles",
+      "price_cad": 17.99,
+      "pizza_slices": 16,
+      "other_pieces": null,
+      "menu_description": "16 Slices; 3970 Cals",
+      "menu_label_hints": [],
+      "dietary_verified": false,
+      "source_page": 15,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        15
+      ]
+    },
+    {
+      "id": "detroit-style-deep-dish-ultimate-supreme-p15",
+      "name": "DETROIT-STYLE DEEP DISH ULTIMATE SUPREME",
+      "category": "detroit_style_deep_dish",
+      "price_cad": 19.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 3130 Cals",
+      "menu_label_hints": [],
+      "dietary_verified": false,
+      "source_page": 15,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        15
+      ]
+    },
+    {
+      "id": "detroit-style-deep-dish-3-meat-treat-p16",
+      "name": "DETROIT-STYLE DEEP DISH 3 MEAT TREAT®",
+      "category": "detroit_style_deep_dish",
+      "price_cad": 18.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 3300 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 16,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        16
+      ]
+    },
+    {
+      "id": "detroit-style-deep-dish-canadian-p17",
+      "name": "DETROIT-STYLE DEEP DISH CANADIAN",
+      "category": "detroit_style_deep_dish",
+      "price_cad": 18.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 3030 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 17,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        17
+      ]
+    },
+    {
+      "id": "detroit-style-deep-dish-hula-hawaiian-p17",
+      "name": "DETROIT-STYLE DEEP DISH HULA HAWAIIAN®",
+      "category": "detroit_style_deep_dish",
+      "price_cad": 19.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2750 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 17,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        17
+      ]
+    },
+    {
+      "id": "detroit-style-deep-dish-bbq-chicken-p18",
+      "name": "DETROIT-STYLE DEEP DISH BBQ CHICKEN",
+      "category": "detroit_style_deep_dish",
+      "price_cad": 19.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2850 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 18,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        18
+      ]
+    },
+    {
+      "id": "detroit-style-deep-dish-pepperoni-p19",
+      "name": "DETROIT-STYLE DEEP DISH PEPPERONI",
+      "category": "detroit_style_deep_dish",
+      "price_cad": 14.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2790 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 19,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        19
+      ]
+    },
+    {
+      "id": "detroit-style-deep-dish-veggie-p19",
+      "name": "DETROIT-STYLE DEEP DISH VEGGIE",
+      "category": "detroit_style_deep_dish",
+      "price_cad": 19.49,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2670 Cals",
+      "menu_label_hints": [
+        "veggie-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 19,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        19
+      ]
+    },
+    {
+      "id": "detroit-style-deep-dish-cheese-p20",
+      "name": "DETROIT-STYLE DEEP DISH CHEESE",
+      "category": "detroit_style_deep_dish",
+      "price_cad": 14.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2170 Cals",
+      "menu_label_hints": [
+        "cheese-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 20,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        20
+      ]
+    },
+    {
+      "id": "extra-extra-pepperoni-p21",
+      "name": "EXTRA!EXTRA!™ PEPPERONI",
+      "category": "large_14_round",
+      "price_cad": 14.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2360 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 21,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        21
+      ]
+    },
+    {
+      "id": "bacon-hula-hawaiian-p22",
+      "name": "BACON HULA HAWAIIAN",
+      "category": "large_14_round",
+      "price_cad": 14.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2340 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 22,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        22
+      ]
+    },
+    {
+      "id": "3-meat-treat-p23",
+      "name": "3 MEAT TREAT®",
+      "category": "large_14_round",
+      "price_cad": 18.49,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2560 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 23,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        23
+      ]
+    },
+    {
+      "id": "ultimate-supreme-p23",
+      "name": "ULTIMATE SUPREME",
+      "category": "large_14_round",
+      "price_cad": 19.49,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2390 Cals",
+      "menu_label_hints": [],
+      "dietary_verified": false,
+      "source_page": 23,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        23
+      ]
+    },
+    {
+      "id": "canadian-p24",
+      "name": "CANADIAN",
+      "category": "large_14_round",
+      "price_cad": 18.49,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2460 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 24,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        24
+      ]
+    },
+    {
+      "id": "bbq-chicken-p25",
+      "name": "BBQ CHICKEN",
+      "category": "large_14_round",
+      "price_cad": 19.49,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2250 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 25,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        25
+      ]
+    },
+    {
+      "id": "hula-hawaiian-p25",
+      "name": "HULA HAWAIIAN®",
+      "category": "large_14_round",
+      "price_cad": 19.49,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2160 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 25,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        25
+      ]
+    },
+    {
+      "id": "veggie-p26",
+      "name": "VEGGIE",
+      "category": "large_14_round",
+      "price_cad": 19.49,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2070 Cals",
+      "menu_label_hints": [
+        "veggie-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 26,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        26
+      ]
+    },
+    {
+      "id": "butter-chicken-p27",
+      "name": "BUTTER CHICKEN",
+      "category": "large_14_round",
+      "price_cad": 17.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2290 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 27,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        27
+      ]
+    },
+    {
+      "id": "creamy-garlic-chicken-p27",
+      "name": "CREAMY GARLIC CHICKEN",
+      "category": "large_14_round",
+      "price_cad": 17.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2200 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 27,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        27
+      ]
+    },
+    {
+      "id": "classic-pepperoni-p28",
+      "name": "CLASSIC PEPPERONI",
+      "category": "large_14_round",
+      "price_cad": 14.49,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2160 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 28,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        28
+      ]
+    },
+    {
+      "id": "classic-cheese-p29",
+      "name": "CLASSIC CHEESE",
+      "category": "large_14_round",
+      "price_cad": 14.49,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 1920 Cals",
+      "menu_label_hints": [
+        "cheese-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 29,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        29
+      ]
+    },
+    {
+      "id": "stuffed-crust-ultimate-supreme-p29",
+      "name": "STUFFED CRUST ULTIMATE SUPREME",
+      "category": "large_14_stuffed_crust",
+      "price_cad": 23.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2870 Cals",
+      "menu_label_hints": [],
+      "dietary_verified": false,
+      "source_page": 29,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        29
+      ]
+    },
+    {
+      "id": "stuffed-crust-3-meat-treat-p30",
+      "name": "STUFFED CRUST 3 MEAT TREAT®",
+      "category": "large_14_stuffed_crust",
+      "price_cad": 22.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 3080 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 30,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        30
+      ]
+    },
+    {
+      "id": "stuffed-crust-canadian-p31",
+      "name": "STUFFED CRUST CANADIAN",
+      "category": "large_14_stuffed_crust",
+      "price_cad": 22.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2890 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 31,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        31
+      ]
+    },
+    {
+      "id": "stuffed-crust-hula-hawaiian-p31",
+      "name": "STUFFED CRUST HULA HAWAIIAN®",
+      "category": "large_14_stuffed_crust",
+      "price_cad": 23.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2700 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 31,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        31
+      ]
+    },
+    {
+      "id": "stuffed-crust-bbq-chicken-p32",
+      "name": "STUFFED CRUST BBQ CHICKEN",
+      "category": "large_14_stuffed_crust",
+      "price_cad": 23.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2760 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 32,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        32
+      ]
+    },
+    {
+      "id": "stuffed-crust-pepperoni-p33",
+      "name": "STUFFED CRUST PEPPERONI",
+      "category": "large_14_stuffed_crust",
+      "price_cad": 18.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2700 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 33,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        33
+      ]
+    },
+    {
+      "id": "stuffed-crust-veggie-p33",
+      "name": "STUFFED CRUST VEGGIE",
+      "category": "large_14_stuffed_crust",
+      "price_cad": 23.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2630 Cals",
+      "menu_label_hints": [
+        "veggie-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 33,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        33
+      ]
+    },
+    {
+      "id": "stuffed-crust-cheese-p34",
+      "name": "STUFFED CRUST CHEESE",
+      "category": "large_14_stuffed_crust",
+      "price_cad": 18.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2450 Cals",
+      "menu_label_hints": [
+        "cheese-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 34,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        34
+      ]
+    },
+    {
+      "id": "bbq-chicken-p35",
+      "name": "BBQ CHICKEN",
+      "category": "medium_12_round",
+      "price_cad": 12.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 1600 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 35,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        35
+      ]
+    },
+    {
+      "id": "hula-hawaiian-p35",
+      "name": "HULA HAWAIIAN®",
+      "category": "medium_12_round",
+      "price_cad": 12.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 1590 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 35,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        35
+      ]
+    },
+    {
+      "id": "bacon-n-pepperoni-p36",
+      "name": "BACON-N-PEPPERONI",
+      "category": "medium_12_round",
+      "price_cad": 9.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 1810 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 36,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        36
+      ]
+    },
+    {
+      "id": "classic-pepperoni-p37",
+      "name": "CLASSIC PEPPERONI",
+      "category": "medium_12_round",
+      "price_cad": 7.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 1590 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 37,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        37
+      ]
+    },
+    {
+      "id": "veggie-p37",
+      "name": "VEGGIE",
+      "category": "medium_12_round",
+      "price_cad": 12.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 1520 Cals",
+      "menu_label_hints": [
+        "veggie-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 37,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        37
+      ]
+    },
+    {
+      "id": "classic-cheese-p38",
+      "name": "CLASSIC CHEESE",
+      "category": "medium_12_round",
+      "price_cad": 7.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 1400 Cals",
+      "menu_label_hints": [
+        "cheese-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 38,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        38
+      ]
+    },
+    {
+      "id": "stuffed-crust-cheese-p39",
+      "name": "STUFFED CRUST CHEESE",
+      "category": "medium_12_stuffed_crust",
+      "price_cad": 13.49,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 1810 Cals",
+      "menu_label_hints": [
+        "cheese-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 39,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        39
+      ]
+    },
+    {
+      "id": "stuffed-crust-pepperoni-p39",
+      "name": "STUFFED CRUST PEPPERONI",
+      "category": "medium_12_stuffed_crust",
+      "price_cad": 13.49,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2010 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 39,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        39
+      ]
+    },
+    {
+      "id": "stuffed-crust-ultimate-supreme-p40",
+      "name": "STUFFED CRUST ULTIMATE SUPREME",
+      "category": "medium_12_stuffed_crust",
+      "price_cad": 18.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2170 Cals",
+      "menu_label_hints": [],
+      "dietary_verified": false,
+      "source_page": 40,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        40
+      ]
+    },
+    {
+      "id": "stuffed-crust-3-meat-treat-p41",
+      "name": "STUFFED CRUST 3 MEAT TREAT®",
+      "category": "medium_12_stuffed_crust",
+      "price_cad": 17.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2340 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 41,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        41
+      ]
+    },
+    {
+      "id": "stuffed-crust-canadian-p41",
+      "name": "STUFFED CRUST CANADIAN",
+      "category": "medium_12_stuffed_crust",
+      "price_cad": 17.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2250 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 41,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        41
+      ]
+    },
+    {
+      "id": "stuffed-crust-hula-hawaiian-p42",
+      "name": "STUFFED CRUST HULA HAWAIIAN®",
+      "category": "medium_12_stuffed_crust",
+      "price_cad": 18.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2010 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 42,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        42
+      ]
+    },
+    {
+      "id": "stuffed-crust-bbq-chicken-p43",
+      "name": "STUFFED CRUST BBQ CHICKEN",
+      "category": "medium_12_stuffed_crust",
+      "price_cad": 18.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 2010 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 43,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        43
+      ]
+    },
+    {
+      "id": "stuffed-crust-veggie-p43",
+      "name": "STUFFED CRUST VEGGIE",
+      "category": "medium_12_stuffed_crust",
+      "price_cad": 18.99,
+      "pizza_slices": 8,
+      "other_pieces": null,
+      "menu_description": "8 Slices; 1940 Cals",
+      "menu_label_hints": [
+        "veggie-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 43,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        43
+      ]
+    },
+    {
+      "id": "thin-crust-pepperoni-p44",
+      "name": "THIN CRUST PEPPERONI",
+      "category": "thin_crust",
+      "price_cad": 12.49,
+      "pizza_slices": null,
+      "other_pieces": 12,
+      "menu_description": "12 Pieces; 1490 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 44,
+      "pizza_cut_pieces": 12,
+      "source_pages": [
+        44
+      ]
+    },
+    {
+      "id": "thin-crust-cheese-p45",
+      "name": "THIN CRUST CHEESE",
+      "category": "thin_crust",
+      "price_cad": 12.49,
+      "pizza_slices": null,
+      "other_pieces": 12,
+      "menu_description": "12 Pieces; 1180 Cals",
+      "menu_label_hints": [
+        "cheese-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 45,
+      "pizza_cut_pieces": 12,
+      "source_pages": [
+        45
+      ]
+    },
+    {
+      "id": "thin-crust-ultimate-supreme-p45",
+      "name": "THIN CRUST ULTIMATE SUPREME",
+      "category": "thin_crust",
+      "price_cad": 16.49,
+      "pizza_slices": null,
+      "other_pieces": 12,
+      "menu_description": "12 Pieces; 1550 Cals",
+      "menu_label_hints": [],
+      "dietary_verified": false,
+      "source_page": 45,
+      "pizza_cut_pieces": 12,
+      "source_pages": [
+        45
+      ]
+    },
+    {
+      "id": "thin-crust-3-meat-treat-p46",
+      "name": "THIN CRUST 3 MEAT TREAT",
+      "category": "thin_crust",
+      "price_cad": 15.49,
+      "pizza_slices": null,
+      "other_pieces": 12,
+      "menu_description": "12 Pieces; 1720 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 46,
+      "pizza_cut_pieces": 12,
+      "source_pages": [
+        46
+      ]
+    },
+    {
+      "id": "thin-crust-canadian-p47",
+      "name": "THIN CRUST CANADIAN",
+      "category": "thin_crust",
+      "price_cad": 15.49,
+      "pizza_slices": null,
+      "other_pieces": 12,
+      "menu_description": "12 Pieces; 1620 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 47,
+      "pizza_cut_pieces": 12,
+      "source_pages": [
+        47
+      ]
+    },
+    {
+      "id": "thin-crust-hula-hawaiian-p47",
+      "name": "THIN CRUST HULA HAWAIIAN",
+      "category": "thin_crust",
+      "price_cad": 16.49,
+      "pizza_slices": null,
+      "other_pieces": 12,
+      "menu_description": "12 Pieces; 1370 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 47,
+      "pizza_cut_pieces": 12,
+      "source_pages": [
+        47
+      ]
+    },
+    {
+      "id": "thin-crust-bbq-chicken-p48",
+      "name": "THIN CRUST BBQ CHICKEN",
+      "category": "thin_crust",
+      "price_cad": 16.49,
+      "pizza_slices": null,
+      "other_pieces": 12,
+      "menu_description": "12 Pieces; 1380 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 48,
+      "pizza_cut_pieces": 12,
+      "source_pages": [
+        48
+      ]
+    },
+    {
+      "id": "pepperoni-crazy-puffs-p49",
+      "name": "PEPPERONI CRAZY PUFFS",
+      "category": "sides",
+      "price_cad": 4.99,
+      "pizza_slices": null,
+      "other_pieces": 4,
+      "menu_description": "4 Pieces; 580 Cals",
+      "menu_label_hints": [
+        "meat-in-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 49,
+      "pizza_cut_pieces": null,
+      "source_pages": [
+        49
+      ]
+    },
+    {
+      "id": "thin-crust-veggie-p49",
+      "name": "THIN CRUST VEGGIE",
+      "category": "thin_crust",
+      "price_cad": 16.49,
+      "pizza_slices": null,
+      "other_pieces": 12,
+      "menu_description": "12 Pieces; 1310 Cals",
+      "menu_label_hints": [
+        "veggie-name"
+      ],
+      "dietary_verified": false,
+      "source_page": 49,
+      "pizza_cut_pieces": 12,
+      "source_pages": [
+        49
+      ]
+    }
+  ],
+  "mvp_item_ids": [
+    "3-meat-treat-p2",
+    "bacon-hula-hawaiian-p3",
+    "extra-extra-pepperoni-p3",
+    "canadian-p4",
+    "choose-1-medium-specialty-pizza-and-1-order-of-the-crazy-bread-p5",
+    "ultimate-supreme-p5",
+    "butter-chicken-p6",
+    "deep-dish-slices-n-stix-cheese-p7",
+    "deep-dish-slices-n-stix-pepperoni-p7",
+    "deep-dish-slices-n-stix-bundle-p8",
+    "gluten-friendly-pizza-p8",
+    "crazy-puffs-bundle-p9",
+    "3-meat-treat-pizza-crazy-puffs-bundle-p10",
+    "canadian-pizza-crazy-puffs-bundle-p10",
+    "hula-hawaiian-pizza-crazy-puffs-bundle-p11",
+    "game-day-large-bundle-p12",
+    "veggie-pizza-crazy-puffs-bundle-p12",
+    "classic-pepperoni-3-meat-treat-crazy-bread-italian-cheese-bread-p13",
+    "3-meat-treat-oven-roasted-caesar-wings-crazy-bread-p14",
+    "2-classic-pizzas-1-order-of-crazy-bread-p15",
+    "detroit-style-deep-dish-ultimate-supreme-p15",
+    "detroit-style-deep-dish-3-meat-treat-p16",
+    "detroit-style-deep-dish-canadian-p17",
+    "detroit-style-deep-dish-hula-hawaiian-p17",
+    "detroit-style-deep-dish-bbq-chicken-p18",
+    "detroit-style-deep-dish-pepperoni-p19",
+    "detroit-style-deep-dish-veggie-p19",
+    "detroit-style-deep-dish-cheese-p20",
+    "extra-extra-pepperoni-p21",
+    "bacon-hula-hawaiian-p22",
+    "3-meat-treat-p23",
+    "ultimate-supreme-p23",
+    "canadian-p24",
+    "bbq-chicken-p25",
+    "hula-hawaiian-p25",
+    "veggie-p26",
+    "butter-chicken-p27",
+    "creamy-garlic-chicken-p27",
+    "classic-pepperoni-p28",
+    "classic-cheese-p29",
+    "stuffed-crust-ultimate-supreme-p29",
+    "stuffed-crust-3-meat-treat-p30",
+    "stuffed-crust-canadian-p31",
+    "stuffed-crust-hula-hawaiian-p31",
+    "stuffed-crust-bbq-chicken-p32",
+    "stuffed-crust-pepperoni-p33",
+    "stuffed-crust-veggie-p33",
+    "stuffed-crust-cheese-p34",
+    "bbq-chicken-p35",
+    "hula-hawaiian-p35",
+    "bacon-n-pepperoni-p36",
+    "classic-pepperoni-p37",
+    "veggie-p37",
+    "classic-cheese-p38",
+    "stuffed-crust-cheese-p39",
+    "stuffed-crust-pepperoni-p39",
+    "stuffed-crust-ultimate-supreme-p40",
+    "stuffed-crust-3-meat-treat-p41",
+    "stuffed-crust-canadian-p41",
+    "stuffed-crust-hula-hawaiian-p42",
+    "stuffed-crust-bbq-chicken-p43",
+    "stuffed-crust-veggie-p43",
+    "thin-crust-pepperoni-p44",
+    "thin-crust-cheese-p45",
+    "thin-crust-ultimate-supreme-p45",
+    "thin-crust-3-meat-treat-p46",
+    "thin-crust-canadian-p47",
+    "thin-crust-hula-hawaiian-p47",
+    "thin-crust-bbq-chicken-p48",
+    "thin-crust-veggie-p49"
+  ]
+}

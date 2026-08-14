@@ -6,12 +6,24 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:verify": "tsx src/lib/verify.test.ts",
+    "test:scoring": "tsx src/lib/scoring.test.ts",
+    "test:input": "tsx src/lib/order-input-schema.test.ts",
+    "test:buffer": "tsx src/lib/food-buffer.test.ts",
+    "test:add-buffer": "tsx src/lib/add-buffer.test.ts",
+    "test:restrictions": "tsx src/lib/new-restrictions.test.ts",
+    "test:dominos": "tsx src/lib/restaurants/dominos.test.ts",
+    "test:dominos-dietary": "tsx src/lib/restaurants/dominosDietary.test.ts",
+    "test": "npm run test:verify && npm run test:scoring && npm run test:input && npm run test:buffer && npm run test:add-buffer && npm run test:restrictions && npm run test:dominos && npm run test:dominos-dietary"
   },
   "dependencies": {
+    "@ai-sdk/groq": "^4.0.28",
+    "ai": "^7.0.65",
     "next": "16.3.1",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -21,6 +33,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.12",
     "typescript": "^5"
   }
 }
