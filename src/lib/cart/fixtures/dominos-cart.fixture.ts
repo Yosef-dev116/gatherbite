@@ -14,7 +14,9 @@ export const DOMINOS_CART_FIXTURE = {
       options: [
         { code: "X", quantity: 1 },
         { code: "C", quantity: 1 },
+        { code: "P", quantity: 1 },
       ],
+      selectedToppings: [{ code: "P", name: "Pepperoni", quantity: 1 }],
       trustedSlicesEach: 8,
     },
     couponCodes: ["3021"],
@@ -36,6 +38,7 @@ export const DOMINOS_CART_FIXTURE = {
   evidence: {
     officialCartCreated: false,
     exactCartObserved: false,
+    selectedToppingQuoteSucceeded: false,
     allInQuoteProven: false,
     sessionTransferProven: false,
     deepLinkStateProven: false,

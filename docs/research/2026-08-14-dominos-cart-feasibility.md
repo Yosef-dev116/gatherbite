@@ -30,7 +30,7 @@ Observed at `2026-08-15T03:14:17.698Z` from Domino’s Canada public ordering in
 - Default components: pizza sauce `X` and cheese `C`.
 - Preference-capable toppings observed include pepperoni `P`, sausage `S`, beef crumble `B`, bacon `K`, black olives `R`, green pepper `G`, mushroom `M`, onion `O`, tomatoes `T`, baby spinach `Sp`, and roasted red peppers `Rp`.
 - Coupon `3021` was listed as "1 Medium 5 Topping Pizzas" at CAD 14.99 for Carryout and Delivery. The coupon itself did not expose trusted slice evidence in this observation; candidate capacity must be tied to the selected variant, not inferred from the coupon name.
-- The quote-only response validated the product and coupon but returned no subtotal, tax, fee, or total because the store connection failed. The menu/coupon price therefore remains display evidence, not an all-in budget proof.
+- A quote-only request explicitly selected pepperoni topping `P` on variant `12SCREEN`. The response validated the product and coupon but returned no subtotal, tax, fee, or total because the store connection failed. The fixture therefore proves the request's exact configuration shape, not that the selected topping was priced, added to a cart, or persisted. The menu/coupon price remains display evidence, not an all-in budget proof.
 
 The public civic address used for the locator check is intentionally not recorded. No customer address, cookie, request header, session identifier, continuation token, or credential is present in this report or its fixtures.
 
