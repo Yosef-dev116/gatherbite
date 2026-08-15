@@ -240,6 +240,8 @@ export interface VerifiedDominosOption {
   candidate: DominosCandidate;
   decision: Extract<VerificationDecision, { decision: "APPROVE" }>;
   evidence: CandidateEvidenceBundle;
+  /** Live public address from the same immutable store observation, or null. */
+  storeAddress: string | null;
   relevantWaitMinutes: WaitMinutes | null;
   recommendationReason: string;
 }
@@ -256,6 +258,7 @@ export const VerifiedDominosOptionSchema = z.object({
     unknowns: z.tuple([]),
   }),
   evidence: CandidateEvidenceBundleSchema,
+  storeAddress: z.string().min(1).nullable(),
   relevantWaitMinutes: WaitMinutesSchema.nullable(),
   recommendationReason: z.string(),
 });

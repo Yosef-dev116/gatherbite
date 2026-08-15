@@ -22,3 +22,4 @@ import "./gatherbite/orchestrator.test";
 import "../app/api/gatherbite/route.test";
 import "./gatherbite/stream.test";
 import "../components/GroupRequirementsForm.test";
+import "../components/GatherBiteResults.test";

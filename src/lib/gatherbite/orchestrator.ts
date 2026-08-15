@@ -212,7 +212,14 @@ export async function evaluateGatherBite(
   }, deps.deadlineMs);
 
   const observationStartedAt = deps.now();
+  let resolvedStoreAddresses: ReadonlyMap<string, string | null> = new Map();
   const observationPromise = createObservationPromise(input, deps, controller.signal)
+    .then((observation) => {
+      resolvedStoreAddresses = new Map(
+        observation.snapshots.map((snapshot) => [snapshot.storeId, snapshot.address]),
+      );
+      return observation;
+    })
     .finally(() => deps.onTiming?.({ name: "observation", durationMs: elapsed(deps.now, observationStartedAt), description: "Live observation" }));
   void observationPromise.catch(() => undefined);
 
@@ -241,7 +248,12 @@ export async function evaluateGatherBite(
 
   emit({ type: "stage", stage: "comparing", message: "Comparing verified Domino's options." });
   const rankingStartedAt = deps.now();
-  const result = normalizeDominosEvaluation(planner.journeys, input.pizzaPreferences, events.events());
+  const result = normalizeDominosEvaluation(
+    planner.journeys,
+    input.pizzaPreferences,
+    events.events(),
+    resolvedStoreAddresses,
+  );
   deps.onTiming?.({ name: "ranking", durationMs: elapsed(deps.now, rankingStartedAt), description: "Option ranking" });
   deps.onTiming?.({ name: "total", durationMs: elapsed(deps.now, totalStartedAt), description: "GatherBite evaluation" });
   onEvent?.({ type: "complete", result });

@@ -46,9 +46,15 @@ test("normalization retains exact configured lines, hard checks, relevant wait, 
   const rejected = journey(candidate("rejected", "delivery"), false, "UNKNOWN");
   const events = [{ type: "decision" as const, candidateId: "rejected", decision: "REJECT" as const, reason: "The all-in total is unknown." }];
 
-  const normalized = normalizeDominosEvaluation([rejected, approved], ["pepperoni", "veggie"], events);
+  const normalized = normalizeDominosEvaluation(
+    [rejected, approved],
+    ["pepperoni", "veggie"],
+    events,
+    new Map([["10950", "386 University Ave, Charlottetown, PE"]]),
+  );
 
   assert.equal(normalized.recommended?.candidate.candidateId, "approved");
+  assert.equal(normalized.recommended?.storeAddress, "386 University Ave, Charlottetown, PE");
   assert.deepEqual(normalized.recommended?.candidate.pizzas[0]?.protectsGroupIds, ["veg"]);
   assert.deepEqual(normalized.recommended?.candidate.pizzas[1]?.toppings, [{ code: "P", quantity: 1 }]);
   assert.equal(normalized.recommended?.evidence.checks.capacity.status, "PASS");
@@ -74,4 +80,15 @@ test("normalization keeps every approved option and explains an honestly empty r
 
   const empty = normalizeDominosEvaluation([], [], []);
   assert.equal(empty.noViableReason, "GatherBite could not verify a Domino's option from the available live data.");
+});
+
+test("normalization keeps a genuinely missing live store address unknown", () => {
+  const normalized = normalizeDominosEvaluation(
+    [journey(candidate("approved"), true)],
+    [],
+    [],
+    new Map([["10950", null]]),
+  );
+
+  assert.equal(normalized.recommended?.storeAddress, null);
 });

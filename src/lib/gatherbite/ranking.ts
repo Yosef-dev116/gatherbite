@@ -27,7 +27,10 @@ function waitFact(check: EvidenceCheck): { min: number; max: number } | null {
     : null;
 }
 
-function approvedOption(journey: CandidateJourney): VerifiedDominosOption | null {
+function approvedOption(
+  journey: CandidateJourney,
+  storeAddresses: ReadonlyMap<string, string | null>,
+): VerifiedDominosOption | null {
   if (journey.outcome.status !== "DECIDED" || journey.outcome.decision.decision !== "APPROVE") return null;
   const represented = journey.outcome.evidence.preference.represented.length;
   const total = numericFact(journey.outcome.evidence.checks.budget, "totalCad");
@@ -35,6 +38,7 @@ function approvedOption(journey: CandidateJourney): VerifiedDominosOption | null
     candidate: journey.candidate,
     decision: journey.outcome.decision,
     evidence: journey.outcome.evidence,
+    storeAddress: storeAddresses.get(journey.candidate.storeId) ?? null,
     relevantWaitMinutes: waitFact(journey.outcome.evidence.checks.availability),
     recommendationReason: `${represented} preference${represented === 1 ? "" : "s"} represented${total === null ? "" : ` with a verified $${total.toFixed(2)} total`}.`,
   };
@@ -65,9 +69,10 @@ function stableId(option: VerifiedDominosOption): string {
 export function rankApprovedDominosOptions(
   journeys: readonly CandidateJourney[],
   requestedPreferences?: readonly PizzaPreference[],
+  storeAddresses: ReadonlyMap<string, string | null> = new Map(),
 ): RankedDominosOptions {
   const approved = journeys.flatMap((journey) => {
-    const option = approvedOption(journey);
+    const option = approvedOption(journey, storeAddresses);
     return option ? [option] : [];
   });
 

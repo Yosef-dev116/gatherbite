@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 
+import { EvaluationProgress } from "@/components/EvaluationProgress";
+import { GatherBiteResults, reduceDecisionState } from "@/components/GatherBiteResults";
 import { GroupRequirementsForm } from "@/components/GroupRequirementsForm";
 import {
   GatherBiteEvaluationSchema,
@@ -109,24 +111,13 @@ export async function requestGatherBiteEvaluation(
   }
 }
 
-function evaluationStatus(events: readonly PublicGatherBiteEvent[]): string | null {
-  const latest = events.at(-1);
-  if (!latest) return null;
-  if (latest.type === "stage") return latest.message;
-  if (latest.type === "candidate") return latest.summary;
-  if (latest.type === "decision") return latest.reason;
-  if (latest.type === "error") return latest.message;
-  return "Evaluation complete.";
-}
-
 export default function Home() {
   const [input, setInput] = useState<GatherBiteInput | null>(null);
   const [events, setEvents] = useState<PublicGatherBiteEvent[]>([]);
   const [evaluation, setEvaluation] = useState<GatherBiteEvaluation | null>(null);
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
-  const [cartState, setCartState] = useState<{ status: "idle"; candidateId: string | null }>({
-    status: "idle",
-    candidateId: null,
+  const [decision, dispatchDecision] = useReducer(reduceDecisionState, {
+    selectedCandidateId: null,
+    cartIntent: "idle",
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,8 +132,7 @@ export default function Home() {
     setInput(nextInput);
     setEvents([]);
     setEvaluation(null);
-    setSelectedCandidateId(null);
-    setCartState({ status: "idle", candidateId: null });
+    dispatchDecision({ type: "clear" });
     setError(null);
     setBusy(true);
 
@@ -167,9 +157,6 @@ export default function Home() {
     }
   }
 
-  const status = evaluationStatus(events);
-  const recommended = evaluation?.recommended ?? null;
-
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-7 px-4 py-8 sm:px-6 sm:py-12">
       <header className="max-w-2xl">
@@ -190,50 +177,19 @@ export default function Home() {
 
       <GroupRequirementsForm busy={busy} onSubmit={evaluate} />
 
-      {(busy || status) && (
-        <section className="form-card" aria-live="polite" aria-busy={busy}>
-          <p className="eyebrow">GatherBite is working</p>
-          <p className="mt-2 text-sm font-medium">{status ?? "Starting evaluation…"}</p>
-        </section>
-      )}
+      <EvaluationProgress events={events} busy={busy} />
 
       {error && <p role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger">{error}</p>}
 
       {evaluation && (
-        <section className="form-card" aria-labelledby="verified-options-heading">
-          <div>
-            <p className="eyebrow">Verified options</p>
-            <h2 id="verified-options-heading" className="mt-1 text-xl font-semibold tracking-tight">
-              {recommended ? "A verified option is ready" : "No option passed every check"}
-            </h2>
-          </div>
-          {recommended ? (
-            <div className="rounded-xl border border-success bg-success-soft p-4">
-              <p className="font-semibold">Domino&apos;s store {recommended.candidate.storeId}</p>
-              <p className="mt-1 text-sm text-muted">{recommended.recommendationReason}</p>
-              <button type="button" className="secondary-action mt-3" onClick={() => {
-                setSelectedCandidateId(recommended.candidate.candidateId);
-                setCartState({ status: "idle", candidateId: recommended.candidate.candidateId });
-              }}>Review this option</button>
-            </div>
-          ) : <p className="text-sm leading-relaxed text-muted">{evaluation.noViableReason}</p>}
-        </section>
-      )}
-
-      {recommended && selectedCandidateId === recommended.candidate.candidateId && (
-        <section className="form-card" aria-labelledby="decision-heading">
-          <div>
-            <p className="eyebrow">Your decision</p>
-            <h2 id="decision-heading" className="mt-1 text-xl font-semibold tracking-tight">Review before continuing</h2>
-          </div>
-          <p className="text-sm text-muted">
-            Your verified option is selected. Cart preparation remains {cartState.status}; you remain responsible for final review and payment.
-          </p>
-          <button type="button" className="secondary-action self-start" onClick={() => {
-            setSelectedCandidateId(null);
-            setCartState({ status: "idle", candidateId: null });
-          }}>Change selection</button>
-        </section>
+        <GatherBiteResults
+          evaluation={evaluation}
+          selectedCandidateId={decision.selectedCandidateId}
+          cartIntent={decision.cartIntent}
+          onSelect={(candidateId) => dispatchDecision({ type: "select", candidateId })}
+          onChangeSelection={() => dispatchDecision({ type: "clear" })}
+          onPrepareCart={() => dispatchDecision({ type: "prepare" })}
+        />
       )}
 
       <p className="pb-3 text-center text-xs leading-relaxed text-muted">

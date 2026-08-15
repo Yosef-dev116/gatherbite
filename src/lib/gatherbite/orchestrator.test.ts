@@ -91,6 +91,7 @@ test("store observation and serviceability start concurrently, fetch once, and s
   assert.equal(serviceCalls, 1);
   assert.equal(plannerCalls, 1);
   assert.equal(result.recommended !== null, true);
+  assert.equal(result.recommended?.storeAddress, "10950 public address");
   assert.equal(result.alternatives.length, 1);
   assert.equal(JSON.stringify(result).includes("little-caesars"), false);
 });

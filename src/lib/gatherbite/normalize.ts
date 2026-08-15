@@ -27,8 +27,9 @@ export function normalizeDominosEvaluation(
   journeys: readonly CandidateJourney[],
   preferences: readonly PizzaPreference[],
   events: readonly PublicGatherBiteEvent[],
+  storeAddresses: ReadonlyMap<string, string | null> = new Map(),
 ): GatherBiteEvaluation {
-  const ranked = rankApprovedDominosOptions(journeys, preferences);
+  const ranked = rankApprovedDominosOptions(journeys, preferences, storeAddresses);
   return {
     recommended: ranked.recommended,
     alternatives: ranked.alternatives,
