@@ -17,6 +17,7 @@ import type { DominosStoreSnapshot } from "../restaurants/dominos";
 import { buildDominosCatalog } from "../restaurants/dominosCatalog";
 import {
   runDominosPlanner,
+  serializeDominosObservationForPlanner,
   type DominosObservationContext,
   type PlannerDependencies,
 } from "./dominosPlanner";
@@ -298,6 +299,28 @@ test("a higher-version candidate cannot create its own adaptation authority", as
   assert.deepEqual(result.journeys, []);
 });
 
+test("an adaptation must retain the structured rejection's candidate identity", async () => {
+  const original = candidate("candidate-1");
+  const mismatched = candidate("candidate-2", 2);
+  const model = scriptedModel([
+    toolCalls([{ name: "observeDominosOptions" }]),
+    toolCalls([{ name: "verifyCandidate", input: original }]),
+    toolCalls([{ name: "verifyCandidate", input: mismatched }]),
+    textResult(),
+  ]);
+  let verifierCalls = 0;
+
+  const result = await runDominosPlanner(fakeInput, dependencies(model, async (request) => {
+    verifierCalls += 1;
+    assert.ok(request);
+    return decided(request.candidate, "REJECT", "ADAPT_ORDER");
+  }));
+
+  assert.equal(verifierCalls, 1);
+  assert.equal(result.verificationAttempts, 1);
+  assert.deepEqual(result.journeys.map((journey) => journey.candidate.candidateId), [original.candidateId]);
+});
+
 test("parallel follow-ups consume only the single approved adaptation path", async () => {
   const original = candidate("candidate-1");
   const firstAdaptation = candidate("candidate-1", 2);
@@ -344,7 +367,7 @@ test("a TERMINAL verifier disposition stops without another Planner round", asyn
 test("the Planner cannot exceed three verifier operations or one adaptation", async () => {
   const first = candidate("candidate-1");
   const second = candidate("candidate-2");
-  const adapted = candidate("candidate-1", 2);
+  const adapted = candidate("candidate-2", 2);
   const model = scriptedModel([
     toolCalls([{ name: "observeDominosOptions" }]),
     toolCalls([
@@ -456,4 +479,19 @@ test("public events contain only bounded stages and candidate summaries", async 
   assert.deepEqual((timings as Array<{ name: string }>).map((entry) => entry.name), ["planner"]);
   assert.equal((events as Array<{ type: string }>).some((event) => event.type === "candidate"), true);
   assert.equal((events as Array<{ type: string }>).some((event) => event.type === "decision"), true);
+});
+
+test("Planner observation exposes one authoritative compact catalog without duplicate menu arrays", () => {
+  const serialized = serializeDominosObservationForPlanner(observation());
+  const store = serialized.stores[0];
+
+  assert.ok(store);
+  assert.equal("products" in store, false);
+  assert.equal("variants" in store, false);
+  assert.equal("toppingOptions" in store, false);
+  assert.equal("deals" in store, false);
+  assert.deepEqual(store.catalog?.products.map(({ id }) => id), ["S_PIZZA"]);
+  assert.deepEqual(store.catalog?.variants.map(({ code }) => code), ["12SCREEN"]);
+  assert.deepEqual(store.catalog?.toppings.map(({ code }) => code), ["X", "C", "P"]);
+  assert.deepEqual(store.catalog?.deals.map(({ code }) => code), []);
 });

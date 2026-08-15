@@ -71,7 +71,7 @@ function verifierError(): VerificationOutcome {
   return { status: "VERIFIER_ERROR", reason: CANDIDATE_ERROR, evidence: null };
 }
 
-function serializeObservation(observation: DominosObservationContext) {
+export function serializeDominosObservationForPlanner(observation: DominosObservationContext) {
   return {
     observedAt: observation.observedAt,
     serviceability: observation.serviceability,
@@ -87,10 +87,6 @@ function serializeObservation(observation: DominosObservationContext) {
       carryoutWaitMinutes: snapshot.carryoutWaitMinutes,
       status: snapshot.status,
       fetchedAt: snapshot.fetchedAt,
-      products: snapshot.products,
-      variants: snapshot.variants ?? [],
-      toppingOptions: snapshot.toppingOptions ?? [],
-      deals: snapshot.deals,
       catalog: (() => {
         const catalog = observation.catalogs.get(snapshot.storeId);
         if (!catalog) return null;
@@ -186,7 +182,7 @@ export async function runDominosPlanner(
         deps.onEvent?.({ type: "stage", stage: "observing", message: "Checking live Domino's options." });
       }
       observation ??= await deps.observationPromise;
-      return serializeObservation(observation);
+      return serializeDominosObservationForPlanner(observation);
     },
   });
 
@@ -210,6 +206,7 @@ export async function runDominosPlanner(
         const adaptable = latestAdaptableJourney(state);
         if (!adaptable
           || state.adaptationUsed
+          || candidate.candidateId !== adaptable.candidate.candidateId
           || candidate.candidateVersion <= adaptable.candidate.candidateVersion) {
           return verifierError();
         }
