@@ -67,3 +67,56 @@ export const DOMINOS_CONFIGURABLE_MENU_FIXTURE = {
     exactVariantEligibility: "UNKNOWN",
   },
 } as const;
+
+/**
+ * Sanitized real-shaped public-menu payload for exercising the production
+ * parser. Coupon 3021 deliberately has no serving tags: its price and topping
+ * allowance do not prove pizza capacity. The eight-slice evidence belongs to
+ * variant 12SCREEN's own explicit serving fields.
+ */
+export const DOMINOS_CONFIGURABLE_MENU_RAW_FIXTURE = {
+  Coupons: {
+    "3021": {
+      Code: DOMINOS_CONFIGURABLE_MENU_FIXTURE.deal.code,
+      Name: DOMINOS_CONFIGURABLE_MENU_FIXTURE.deal.name,
+      Price: String(DOMINOS_CONFIGURABLE_MENU_FIXTURE.deal.displayedPriceCad),
+      Tags: {
+        ValidServiceMethods: ["Carryout", "Delivery"],
+      },
+    },
+  },
+  Products: {
+    S_PIZZA: {
+      Code: DOMINOS_CONFIGURABLE_MENU_FIXTURE.product.code,
+      Name: DOMINOS_CONFIGURABLE_MENU_FIXTURE.product.name,
+      ProductType: DOMINOS_CONFIGURABLE_MENU_FIXTURE.product.productType,
+      DefaultToppings: "X=1,C=1",
+      Tags: { DefaultVariant: DOMINOS_CONFIGURABLE_MENU_FIXTURE.variant.code },
+      Variants: [...DOMINOS_CONFIGURABLE_MENU_FIXTURE.product.variantCodes],
+    },
+  },
+  Variants: {
+    "12SCREEN": {
+      Code: DOMINOS_CONFIGURABLE_MENU_FIXTURE.variant.code,
+      ProductCode: DOMINOS_CONFIGURABLE_MENU_FIXTURE.variant.productCode,
+      Size: { Code: DOMINOS_CONFIGURABLE_MENU_FIXTURE.variant.size.code },
+      Crust: { Code: DOMINOS_CONFIGURABLE_MENU_FIXTURE.variant.crust.code },
+      Price: String(DOMINOS_CONFIGURABLE_MENU_FIXTURE.variant.menuPriceCad),
+      Tags: {
+        Servings: DOMINOS_CONFIGURABLE_MENU_FIXTURE.variant.servingEvidence.servings,
+        ServingSize: DOMINOS_CONFIGURABLE_MENU_FIXTURE.variant.servingEvidence.servingSize,
+      },
+    },
+  },
+  Toppings: {
+    Sauce: {
+      X: { Name: DOMINOS_CONFIGURABLE_MENU_FIXTURE.sauce.name },
+    },
+    Cheese: {
+      C: { Name: DOMINOS_CONFIGURABLE_MENU_FIXTURE.cheese.name },
+    },
+    Pizza: Object.fromEntries(
+      DOMINOS_CONFIGURABLE_MENU_FIXTURE.toppings.map(({ code, name }) => [code, { Name: name }]),
+    ),
+  },
+} as const;

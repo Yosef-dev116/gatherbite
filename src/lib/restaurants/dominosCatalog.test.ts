@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { getDominosStoreSnapshot, type DominosStoreSnapshot } from "./dominos";
 import { buildDominosCatalog, observeSupportedDominosStores } from "./dominosCatalog";
-import type { DominosStoreSnapshot } from "./dominos";
-import { DOMINOS_CONFIGURABLE_MENU_FIXTURE } from "./fixtures/dominos-configurable-menu.fixture";
+import {
+  DOMINOS_CONFIGURABLE_MENU_FIXTURE,
+  DOMINOS_CONFIGURABLE_MENU_RAW_FIXTURE,
+} from "./fixtures/dominos-configurable-menu.fixture";
 
 function configurableSnapshot(): DominosStoreSnapshot {
   const fixture = DOMINOS_CONFIGURABLE_MENU_FIXTURE;
@@ -65,18 +68,44 @@ function configurableSnapshot(): DominosStoreSnapshot {
   };
 }
 
-test("buildDominosCatalog indexes only observed configurable identifiers", () => {
-  const fixture = DOMINOS_CONFIGURABLE_MENU_FIXTURE;
-  const catalog = buildDominosCatalog(configurableSnapshot());
+async function parsedConfigurableSnapshot(): Promise<DominosStoreSnapshot> {
+  const originalFetch = global.fetch;
+  global.fetch = (async (input: RequestInfo | URL) => {
+    const url = input.toString();
+    return {
+      ok: true,
+      status: 200,
+      json: async () => url.endsWith("/profile")
+        ? {
+            StoreID: DOMINOS_CONFIGURABLE_MENU_FIXTURE.storeId,
+            IsOpen: true,
+            IsOnlineNow: true,
+            AllowDeliveryOrders: true,
+            AllowCarryoutOrders: true,
+          }
+        : DOMINOS_CONFIGURABLE_MENU_RAW_FIXTURE,
+    } as Response;
+  }) as typeof fetch;
 
-  assert.equal(catalog.snapshotVersion, `${fixture.storeId}:${fixture.sourceObservedAt}`);
+  try {
+    return await getDominosStoreSnapshot(DOMINOS_CONFIGURABLE_MENU_FIXTURE.storeId);
+  } finally {
+    global.fetch = originalFetch;
+  }
+}
+
+test("buildDominosCatalog indexes production-parsed configurable identifiers", async () => {
+  const fixture = DOMINOS_CONFIGURABLE_MENU_FIXTURE;
+  const snapshot = await parsedConfigurableSnapshot();
+  const catalog = buildDominosCatalog(snapshot);
+
+  assert.equal(catalog.snapshotVersion, `${fixture.storeId}:${snapshot.fetchedAt}`);
   assert.equal(catalog.toppingsByCode.get("P")?.name, "Pepperoni");
   assert.deepEqual(catalog.productsByCode.get("S_PIZZA")?.defaultToppingCodes, ["X", "C"]);
   assert.equal(catalog.productsByCode.get("S_PIZZA")?.defaultToppingCodes.includes("P"), false);
   assert.equal(catalog.variantsByCode.get("12SCREEN")?.priceCad, 14.99);
   assert.equal(catalog.variantsByCode.get("12SCREEN")?.trustedSlices, 8);
   assert.equal(catalog.dealsByCode.get("3021")?.trustedSlices, null);
-  assert.equal(catalog.dealsByCode.get("AMBIGUOUS")?.trustedSlices, null);
 });
 
 test("catalogue values and indexes cannot be mutated through the public surface", () => {
@@ -87,6 +116,7 @@ test("catalogue values and indexes cannot be mutated through the public surface"
   assert.equal(Object.isFrozen(product), true);
   assert.equal(Object.isFrozen(product.defaultToppingCodes), true);
   assert.equal("set" in catalog.productsByCode, false);
+  assert.equal(catalog.dealsByCode.get("AMBIGUOUS")?.trustedSlices, null);
 });
 
 test("observeSupportedDominosStores starts unique valid store observations together and records rejected ids", async () => {

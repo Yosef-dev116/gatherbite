@@ -1,5 +1,6 @@
 import { getDominosStoreSnapshot } from "./dominos";
 import type { DominosStoreSnapshot } from "./dominos";
+import { DOMINOS_CONFIGURABLE_MENU_RAW_FIXTURE } from "./fixtures/dominos-configurable-menu.fixture";
 import { compareDominosStores, classifyDominosStore, describeDominosTradeoff } from "./dominosCompare";
 import type { DominosComparisonResult } from "./dominosCompare";
 
@@ -58,8 +59,8 @@ function profileFixture(overrides: Record<string, unknown> = {}) {
 function menuFixture(couponPrice: string, overrides: Record<string, unknown> = {}) {
   return {
     Coupons: {
-      "3021": {
-        Code: "3021",
+      "TEST_SINGLE_PIZZA": {
+        Code: "TEST_SINGLE_PIZZA",
         Name: "1 Medium 5 Topping Pizzas",
         Price: couponPrice,
         Tags: { ValidServiceMethods: ["Carryout", "Delivery"], Servings: "8 slices" },
@@ -94,7 +95,7 @@ function fixtureSnapshot(overrides: Partial<DominosStoreSnapshot>): DominosStore
     carryoutAvailable: true,
     deliveryWaitMinutes: { min: 18, max: 28 },
     carryoutWaitMinutes: { min: 11, max: 16 },
-    deals: [{ code: "3021", name: "1 Medium 5 Topping Pizzas", price: 14.99, conditions: "Carryout,Delivery", slices: 8 }],
+    deals: [{ code: "TEST_SINGLE_PIZZA", name: "1 Medium 5 Topping Pizzas", price: 14.99, conditions: "Carryout,Delivery", slices: 8 }],
     products: [],
     variants: [],
     toppingOptions: [],
@@ -134,6 +135,18 @@ async function run() {
     check("no errors on a clean fetch", snapshot.errors.length === 0);
   }
 
+  // --- Scenario 1b: real configurable evidence stays attached to variant ---
+  console.log("Scenario 1b: real-shaped configurable menu keeps capacity on variant, not coupon");
+  {
+    const snapshot = await withMockedFetch(
+      { [PROFILE_URL]: { body: profileFixture() }, [MENU_URL]: { body: DOMINOS_CONFIGURABLE_MENU_RAW_FIXTURE } },
+      () => getDominosStoreSnapshot("10950")
+    );
+    check("real coupon 3021 remains capacity-unknown", snapshot.deals.find(({ code }) => code === "3021")?.slices === null);
+    check("variant 12SCREEN derives eight slices from its explicit variant tags", snapshot.variants?.find(({ code }) => code === "12SCREEN")?.trustedSlices === 8);
+    check("variant capacity retains its exact product link", snapshot.variants?.find(({ code }) => code === "12SCREEN")?.productCode === "S_PIZZA");
+  }
+
   // --- Scenario 2: partial data — one endpoint fails ---
   console.log("Scenario 2: partial data (profile fails, menu succeeds)");
   {
@@ -168,7 +181,7 @@ async function run() {
   {
     const cheaper = fixtureSnapshot({
       storeId: "10953",
-      deals: [{ code: "3021", name: "1 Medium 5 Topping Pizzas", price: 13.99, conditions: "Carryout,Delivery", slices: 8 }],
+      deals: [{ code: "TEST_SINGLE_PIZZA", name: "1 Medium 5 Topping Pizzas", price: 13.99, conditions: "Carryout,Delivery", slices: 8 }],
       deliveryWaitMinutes: { min: 15, max: 25 },
     });
     const pricier = fixtureSnapshot({ storeId: "10950" });
@@ -278,7 +291,7 @@ async function run() {
   console.log("Scenario 10: capacity must cover the whole group, not just one cheap unit");
   {
     const snapshot = fixtureSnapshot({
-      deals: [{ code: "3021", name: "1 Medium 5 Topping Pizzas", price: 14.99, conditions: "Carryout,Delivery", slices: 8 }],
+      deals: [{ code: "TEST_SINGLE_PIZZA", name: "1 Medium 5 Topping Pizzas", price: 14.99, conditions: "Carryout,Delivery", slices: 8 }],
     });
     // A single unit ($14.99) looks affordable against a $20 budget, but 18
     // people need 54 slices -> 7 units -> $104.93, which does NOT fit.
@@ -343,7 +356,7 @@ async function run() {
       classification: "FULLY_VIABLE",
       reason: null,
       estimatedTotalCad: 100,
-      dealUsed: { code: "3021", name: "1 Medium Pizza", price: 14.99, quantity: 7, totalSlices: 56 },
+      dealUsed: { code: "TEST_SINGLE_PIZZA", name: "1 Medium Pizza", price: 14.99, quantity: 7, totalSlices: 56 },
       waitMinutes: { min: 18, max: 28 },
       ...overrides,
     };
