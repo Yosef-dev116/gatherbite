@@ -97,6 +97,10 @@ interface FakeDriverConfig {
   snapshots: BrowserSnapshot[];
   performThrows?: number; // number of leading perform() calls that throw before succeeding
   handoffUrl?: string | null;
+  /** 1-based snapshot() call number that throws instead of returning a canned snapshot. */
+  snapshotThrowsOnCall?: number;
+  /** When true, handoffUrl() throws instead of resolving. */
+  handoffUrlThrows?: boolean;
 }
 
 interface FakeDriver extends BrowserDriver {
@@ -115,6 +119,9 @@ function createFakeDriver(config: FakeDriverConfig): FakeDriver {
     performedActions,
     async snapshot() {
       calls.snapshot += 1;
+      if (calls.snapshot === config.snapshotThrowsOnCall) {
+        throw new Error("navigation error: page failed to load");
+      }
       const next = snapshots.shift();
       if (!next) throw new Error("fake driver ran out of scripted snapshots");
       return next;
@@ -129,6 +136,9 @@ function createFakeDriver(config: FakeDriverConfig): FakeDriver {
     },
     async handoffUrl() {
       calls.handoffUrl += 1;
+      if (config.handoffUrlThrows) {
+        throw new Error("network drop while reading the handoff URL");
+      }
       return config.handoffUrl ?? null;
     },
     async close() {
@@ -245,6 +255,61 @@ test("NOT_STARTED -> PREPARING -> TIMED_OUT: a hard timeout stops preparation wi
   assert.equal(driver.calls.perform, 0);
   assert.equal(driver.calls.close, 1, "the session must still be closed even after a timeout");
   assert.deepEqual(result.fallback, buildGuidedHandoff(candidate()));
+  nonSuccessResults.push(result);
+});
+
+test("a thrown driver.snapshot() resolves prepare() with a non-success result and the fallback, never a rejection", async () => {
+  const driver = createFakeDriver({
+    snapshots: [],
+    snapshotThrowsOnCall: 1, // the very first snapshot() call throws
+  });
+  const executor = createDominosCartExecutor({ mode: "transferable-browser", browserDriver: driver, timeoutMs: 10_000 });
+
+  // Must resolve, not reject.
+  const result = await executor.prepare(prepareInput());
+
+  assert.notEqual(result.status, "PREPARED_AND_OBSERVED");
+  assert.equal(result.status, "AUTOMATION_UNAVAILABLE");
+  assert.deepEqual(result.fallback, buildGuidedHandoff(candidate()));
+  assert.equal(driver.calls.perform, 0, "a failed snapshot must not attempt the guarded action");
+  assert.equal(driver.calls.close, 1, "the session must still be closed even after a thrown snapshot()");
+  nonSuccessResults.push(result);
+});
+
+test("a thrown driver.snapshot() on the post-action read also resolves with a non-success result and the fallback", async () => {
+  const driver = createFakeDriver({
+    snapshots: [snapshot({ pageKind: "configuration" })],
+    snapshotThrowsOnCall: 2, // the pre-snapshot succeeds; the post-action snapshot throws
+  });
+  const executor = createDominosCartExecutor({ mode: "transferable-browser", browserDriver: driver, timeoutMs: 10_000 });
+
+  const result = await executor.prepare(prepareInput());
+
+  assert.notEqual(result.status, "PREPARED_AND_OBSERVED");
+  assert.equal(result.status, "AUTOMATION_UNAVAILABLE");
+  assert.deepEqual(result.fallback, buildGuidedHandoff(candidate()));
+  assert.equal(driver.calls.perform, 1, "the guarded action was attempted before the post-snapshot failed");
+  assert.equal(driver.calls.close, 1);
+  nonSuccessResults.push(result);
+});
+
+test("a thrown driver.handoffUrl() resolves prepare() with a non-success result and the fallback, never a rejection", async () => {
+  const driver = createFakeDriver({
+    snapshots: [
+      snapshot({ pageKind: "configuration" }),
+      snapshot({ pageKind: "cart", cart: matchingCart() }),
+    ],
+    handoffUrlThrows: true,
+  });
+  const executor = createDominosCartExecutor({ mode: "transferable-browser", browserDriver: driver, timeoutMs: 10_000 });
+
+  const result = await executor.prepare(prepareInput());
+
+  assert.notEqual(result.status, "PREPARED_AND_OBSERVED");
+  assert.equal(result.status, "AUTOMATION_UNAVAILABLE");
+  assert.deepEqual(result.fallback, buildGuidedHandoff(candidate()));
+  assert.equal(result.comparison?.matches, true, "the cart itself matched; only reading the handoff URL failed");
+  assert.equal(driver.calls.close, 1, "the session must still be closed even after a thrown handoffUrl()");
   nonSuccessResults.push(result);
 });
 

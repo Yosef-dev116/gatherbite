@@ -89,12 +89,38 @@ type BuildPhaseOutcome =
   | { blocked: true; result: CartPreparationResult }
   | { blocked: false; snapshot: BrowserSnapshot };
 
+type SnapshotOutcome =
+  | { ok: true; snapshot: BrowserSnapshot }
+  | { ok: false; result: CartPreparationResult };
+
+/**
+ * Reads a fresh snapshot, converting a thrown error (a realistic
+ * browser-automation failure mode — navigation error, network drop) into a
+ * non-success `CartPreparationResult` that still carries the fallback,
+ * rather than letting the rejection escape `prepare()`.
+ */
+async function safeSnapshot(
+  driver: BrowserDriver,
+  fallback: ReturnType<typeof buildGuidedHandoff>,
+): Promise<SnapshotOutcome> {
+  try {
+    return { ok: true, snapshot: await driver.snapshot() };
+  } catch (error) {
+    return {
+      ok: false,
+      result: notReady("AUTOMATION_UNAVAILABLE", fallback, `Reading the official page failed: ${String(error)}`),
+    };
+  }
+}
+
 /**
  * One "build phase": read a fresh snapshot, perform exactly one guarded
  * action (retried up to `MAX_STEP_ATTEMPTS` times only on a thrown/transient
  * failure — never on a CAPTCHA/login page, which stops immediately), then
  * read a fresh snapshot again to observe the result. Redirects to a
- * CAPTCHA/login page at either snapshot end the phase immediately.
+ * CAPTCHA/login page at either snapshot end the phase immediately. A thrown
+ * `snapshot()` at either point also ends the phase immediately, as a
+ * non-success result with the fallback attached.
  */
 async function runBuildPhase(
   driver: BrowserDriver,
@@ -105,7 +131,9 @@ async function runBuildPhase(
     return { blocked: true, result: notReady("TIMED_OUT", fallback, "Preparation exceeded the configured timeout before this step could run.") };
   }
 
-  const preSnapshot = await driver.snapshot();
+  const preSnapshotOutcome = await safeSnapshot(driver, fallback);
+  if (!preSnapshotOutcome.ok) return { blocked: true, result: preSnapshotOutcome.result };
+  const preSnapshot = preSnapshotOutcome.snapshot;
   const preBlock = pageBlockResult(preSnapshot, fallback);
   if (preBlock) return { blocked: true, result: preBlock };
 
@@ -145,11 +173,30 @@ async function runBuildPhase(
     return { blocked: true, result: notReady("TIMED_OUT", fallback, "Preparation exceeded the configured timeout after this step ran.") };
   }
 
-  const postSnapshot = await driver.snapshot();
+  const postSnapshotOutcome = await safeSnapshot(driver, fallback);
+  if (!postSnapshotOutcome.ok) return { blocked: true, result: postSnapshotOutcome.result };
+  const postSnapshot = postSnapshotOutcome.snapshot;
   const postBlock = pageBlockResult(postSnapshot, fallback);
   if (postBlock) return { blocked: true, result: postBlock };
 
   return { blocked: false, snapshot: postSnapshot };
+}
+
+/**
+ * Reads the handoff URL, converting a thrown error into a caught outcome
+ * rather than letting the rejection escape `prepare()`. The caller already
+ * knows the observed cart and comparison at this point (the build already
+ * succeeded), so it builds the non-success result itself to preserve that
+ * evidence instead of discarding it.
+ */
+async function safeHandoffUrl(
+  driver: BrowserDriver,
+): Promise<{ ok: true; url: string | null } | { ok: false; error: unknown }> {
+  try {
+    return { ok: true, url: await driver.handoffUrl() };
+  } catch (error) {
+    return { ok: false, error };
+  }
 }
 
 async function runTransferableBrowserFlow(
@@ -195,7 +242,18 @@ async function runTransferableBrowserFlow(
       return notReady("TIMED_OUT", fallback, "Preparation exceeded the configured timeout after the cart was built.");
     }
 
-    const handoffUrl = await driver.handoffUrl();
+    const handoffOutcome = await safeHandoffUrl(driver);
+    if (!handoffOutcome.ok) {
+      return {
+        status: "AUTOMATION_UNAVAILABLE",
+        actualCart: lastSnapshot!.cart,
+        comparison,
+        handoffUrl: null,
+        fallback,
+        reason: `Reading the handoff URL failed: ${String(handoffOutcome.error)}`,
+      };
+    }
+    const handoffUrl = handoffOutcome.url;
     if (!handoffUrl) {
       return {
         status: "SESSION_NOT_TRANSFERABLE",
