@@ -476,6 +476,63 @@ test("a known deal without proven variant eligibility remains UNKNOWN", async ()
   assert.match(evidence.checks.menuIntegrity.summary, /deal eligibility/i);
 });
 
+test("a candidate claiming a live default cheese component is absent is not proven safe by silent omission", async () => {
+  // The live product's DefaultToppings ("X=1,C=1") proves cheese ("C") is
+  // the store's default for this product. A candidate line can legitimately
+  // claim "no cheese" by setting cheeseCode: null, but today checkComponent
+  // treats any null component as automatically fine — it never checks
+  // whether the live default configuration actually includes that
+  // component. This is the bug from Task 19 Fix 2: an unproven omission
+  // must surface as UNKNOWN, not be silently treated as proven absence.
+  const liveSnapshot: DominosStoreSnapshot = {
+    ...snapshot(),
+    products: snapshot().products.map((product) => ({
+      ...product,
+      // Isolate the cheese default only (drop the sauce default "X") so this
+      // test exercises exactly one component removal claim at a time.
+      defaultToppingCodes: ["C"],
+    })),
+  };
+  const catalog = buildDominosCatalog(liveSnapshot);
+  const noCheesePizza = pizza({
+    cheeseCode: null,
+    toppings: [],
+    protectsGroupIds: ["vegan-line"],
+  });
+  const noCheeseCandidate = candidate({ pizzas: [noCheesePizza] });
+
+  const evidence = await collectCandidateEvidence({
+    input: input({ groups: [{ id: "vegan-line", people: 1, restrictions: ["vegan"] }] }),
+    candidate: noCheeseCandidate,
+    snapshot: liveSnapshot,
+    catalog,
+    serviceability: carryoutServiceability(),
+    priceEvidence: knownPrice(noCheeseCandidate),
+    collectedAt: COLLECTED_AT,
+  });
+
+  assert.equal(evidence.checks.menuIntegrity.status, "UNKNOWN");
+  assert.match(evidence.checks.menuIntegrity.summary, /not proven|removal/i);
+});
+
+test("a candidate whose product has no live default for an omitted component still passes menu integrity", async () => {
+  // Control case: when the live default configuration does NOT include the
+  // omitted component, the null claim is unremarkable and must not be
+  // flagged. Only "claims a live default is absent" changes behavior.
+  const evidence = await collectCandidateEvidence(context((value) => {
+    const sauceOnlyDefaultCandidate = candidate({
+      pizzas: [pizza({ cheeseCode: null, toppings: [] })],
+    });
+    return {
+      ...replaceCandidate(value, sauceOnlyDefaultCandidate),
+      snapshot: { ...value.snapshot, products: value.snapshot.products.map((p) => ({ ...p, defaultToppingCodes: ["X"] })) },
+      catalog: buildDominosCatalog({ ...value.snapshot, products: value.snapshot.products.map((p) => ({ ...p, defaultToppingCodes: ["X"] })) }),
+    };
+  }));
+
+  assert.equal(evidence.checks.menuIntegrity.status, "PASS");
+});
+
 test("a rejected evidence promise becomes explicit UNKNOWN without leaking its error", async () => {
   const value = context();
   const productsByCode = new Proxy(value.catalog.productsByCode, {

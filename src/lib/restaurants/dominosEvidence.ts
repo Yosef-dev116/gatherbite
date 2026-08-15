@@ -175,7 +175,23 @@ async function checkMenuIntegrity(context: CandidateEvidenceContext): Promise<Ev
     }
 
     const checkComponent = (code: string | null, expected: "sauce" | "cheese", label: string) => {
-      if (code === null) return;
+      if (code === null) {
+        // A null component is a candidate's claim that the component was
+        // removed. The live catalogue's real DefaultToppings already proves
+        // whether the product ships with that component by default; if it
+        // does, the claimed removal is not itself proven by anything in the
+        // live configuration. Fail closed to UNKNOWN (not FAIL — we cannot
+        // prove the component is still present either) rather than treating
+        // the unproven omission as proven absence.
+        const impliedByLiveDefault = product?.defaultToppingCodes.some((defaultCode) => {
+          const defaultComponent = catalog.toppingsByCode.get(defaultCode);
+          return defaultComponent ? categoryIs(defaultComponent.category, expected) === true : false;
+        });
+        if (impliedByLiveDefault) {
+          unknowns.push(`${label} on line ${line.lineId} is claimed absent, but the live default configuration includes a ${expected} component; component removal is not proven by the live configuration.`);
+        }
+        return;
+      }
       const component = catalog.toppingsByCode.get(code);
       if (!component) {
         failures.push(`${label} code on line ${line.lineId} is absent from the live catalogue.`);
