@@ -53,6 +53,7 @@ export interface VerifyObservedDominosCandidateInput {
   verifyCandidate: typeof runDominosVerifier;
   onEvent?: EventSink;
   onTiming?: (entry: TimingEntry) => void;
+  abortSignal?: AbortSignal;
 }
 
 const CONTEXT_ERROR = "Verification could not establish current candidate context.";
@@ -69,6 +70,7 @@ export async function verifyObservedDominosCandidate({
   verifyCandidate,
   onEvent,
   onTiming,
+  abortSignal,
 }: VerifyObservedDominosCandidateInput): Promise<VerificationOutcome> {
   if (!candidateMatchesObservation(candidate, observation)) {
     return { status: "VERIFIER_ERROR", reason: CONTEXT_ERROR, evidence: null };
@@ -99,6 +101,7 @@ export async function verifyObservedDominosCandidate({
     collectEvidence: collectCandidateEvidence,
     onEvent,
     onTiming,
+    abortSignal,
   };
 
   try {

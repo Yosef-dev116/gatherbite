@@ -36,6 +36,7 @@ const FIXED_DESCRIPTIONS: Record<string, string> = {
 
 function safeName(value: string): string | null {
   if (!/^[a-z][a-z0-9_-]{0,63}$/.test(value)) return null;
+  if (/^dom_(10950|10953)_(profile|menu)$/.test(value)) return value;
   return Object.prototype.hasOwnProperty.call(FIXED_DESCRIPTIONS, value) ? value : null;
 }
 

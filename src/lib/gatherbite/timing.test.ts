@@ -30,7 +30,15 @@ test("arbitrary timing descriptions cannot enter Server-Timing", () => {
 test("request-derived metric names cannot enter Server-Timing", () => {
   const timing = createTimingCollector();
   timing.record({ name: "planner_123-main-street", durationMs: 8, description: "Planner" });
-  timing.record({ name: "dom_10950_menu", durationMs: 9, description: "Domino's" });
   assert.equal(timing.entries().length, 0);
   assert.equal(timing.serverTiming(), "");
+});
+
+test("fixed supported-store profile and menu timings remain observable without request data", () => {
+  const timing = createTimingCollector();
+  timing.record({ name: "dom_10950_profile", durationMs: 9, description: "private description" });
+  timing.record({ name: "dom_10953_menu", durationMs: 10, description: "private description" });
+  timing.record({ name: "dom_99999_menu", durationMs: 11, description: "private description" });
+  assert.deepEqual(timing.entries().map(({ name }) => name), ["dom_10950_profile", "dom_10953_menu"]);
+  assert.equal(timing.serverTiming().includes("private description"), false);
 });

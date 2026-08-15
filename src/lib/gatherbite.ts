@@ -11,6 +11,15 @@ import type {
   ServiceMethodPreference,
 } from "./restaurants/dominosCompare";
 
+export { rankApprovedDominosOptions } from "./gatherbite/ranking";
+export { normalizeDominosEvaluation } from "./gatherbite/normalize";
+export {
+  createDefaultGatherBiteDependencies,
+  evaluateGatherBite,
+  type GatherBiteDependencies,
+} from "./gatherbite/orchestrator";
+export { isTransientGatherBiteError, withOneTransientRetry } from "./gatherbite/retry";
+
 export type ProviderResultStatus = "viable" | "not-viable" | "insufficient-data";
 export type ProviderCheckStatus = "pass" | "fail" | "unknown";
 

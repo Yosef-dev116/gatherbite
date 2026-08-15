@@ -31,6 +31,7 @@ export interface VerifyCandidateInput {
 
 export interface VerifierAgentRunRequest {
   model: LanguageModel;
+  abortSignal?: AbortSignal;
   candidateIdentity: Pick<DominosCandidate, "candidateId" | "candidateVersion" | "snapshotVersion">;
   gatherCandidateEvidence: () => Promise<CandidateEvidenceBundle>;
 }
@@ -43,6 +44,7 @@ export interface VerifyCandidateDeps {
   collectEvidence: typeof collectCandidateEvidence;
   onEvent?: EventSink;
   onTiming?: (entry: TimingEntry) => void;
+  abortSignal?: AbortSignal;
   runner?: VerifierAgentRunner;
 }
 
@@ -50,6 +52,7 @@ const VERIFIER_ERROR = "Verification could not complete safely.";
 
 async function runVerifierAgent({
   model,
+  abortSignal,
   candidateIdentity,
   gatherCandidateEvidence,
 }: VerifierAgentRunRequest): Promise<unknown> {
@@ -82,6 +85,7 @@ Call gatherCandidateEvidence exactly once. This stage has no authority to issue 
 
   await evidenceAgent.generate({
     prompt: `Gather exact evidence for candidate ${candidateIdentity.candidateId}, version ${candidateIdentity.candidateVersion}, against snapshot ${candidateIdentity.snapshotVersion}.`,
+    abortSignal,
   });
   const parsedEvidence = CandidateEvidenceBundleSchema.safeParse(evidenceFromTool);
   if (!parsedEvidence.success) throw new Error("Exact evidence was not captured.");
@@ -111,6 +115,7 @@ Return APPROVE only when every hard check is PASS. Return REJECT when any hard c
 
 Exact evidence bundle:
 ${JSON.stringify(parsedEvidence.data)}`,
+    abortSignal,
   });
   return result.output;
 }
@@ -167,6 +172,7 @@ export async function runDominosVerifier(
   try {
     rawDecision = await (deps.runner ?? runVerifierAgent)({
       model: deps.model,
+      abortSignal: deps.abortSignal,
       candidateIdentity: {
         candidateId: input.candidate.candidateId,
         candidateVersion: input.candidate.candidateVersion,

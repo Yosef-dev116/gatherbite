@@ -12,6 +12,7 @@ import {
   type CandidateJourney,
   type DominosCandidate,
   type GatherBiteInput,
+  type PublicGatherBiteEvent,
   type VerificationOutcome,
 } from "../gatherbite/contracts";
 import type { EventSink } from "../gatherbite/events";
@@ -40,6 +41,7 @@ export interface PlannerDependencies {
   verifyCandidate: typeof runDominosVerifier;
   onEvent?: EventSink;
   onTiming?: (entry: TimingEntry) => void;
+  abortSignal?: AbortSignal;
 }
 
 export interface PlannerRunResult {
@@ -168,6 +170,8 @@ export async function runDominosPlanner(
     adaptationUsed: false,
   };
   const withVerifierLimit = createConcurrencyLimit(2);
+  const verifierEventsByAttempt: Array<PublicGatherBiteEvent[] | undefined> = [];
+  let nextVerifierEventAttempt = 0;
   let observation: DominosObservationContext | null = null;
   let observationEventEmitted = false;
 
@@ -228,16 +232,23 @@ export async function runDominosPlanner(
       });
 
       return withVerifierLimit(async () => {
+        const verifierEvents: PublicGatherBiteEvent[] = [];
         const outcome = await verifyObservedDominosCandidate({
           input,
           candidate,
           observation: observation as DominosObservationContext,
           verifierModel: deps.model,
           verifyCandidate: deps.verifyCandidate,
-          onEvent: deps.onEvent,
+          onEvent: (event) => verifierEvents.push(event),
           onTiming: deps.onTiming,
+          abortSignal: deps.abortSignal,
         });
         state.journeysByAttempt[attemptIndex] = { candidate, outcome, adaptedFromCandidateId };
+        verifierEventsByAttempt[attemptIndex] = verifierEvents;
+        while (verifierEventsByAttempt[nextVerifierEventAttempt] !== undefined) {
+          for (const event of verifierEventsByAttempt[nextVerifierEventAttempt]!) deps.onEvent?.(event);
+          nextVerifierEventAttempt += 1;
+        }
 
         if (outcome.status === "DECIDED") {
           if (outcome.decision.decision === "APPROVE") {
@@ -263,7 +274,7 @@ export async function runDominosPlanner(
       stopWhen: [stepCountIs(12), () => shouldStopDominosLoop(state)],
     });
 
-    await agent.generate({ prompt: buildPlannerPrompt(input) });
+    await agent.generate({ prompt: buildPlannerPrompt(input), abortSignal: deps.abortSignal });
   } catch {
     state.terminal = true;
     deps.onEvent?.({ type: "error", message: PLANNER_ERROR });

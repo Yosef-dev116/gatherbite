@@ -14,3 +14,8 @@ import "./agents/verifierGuard.test";
 import "./agents/dominosVerifier.test";
 import "./gatherbite/agentLoop.test";
 import "./agents/dominosPlanner.test";
+import "./gatherbite/ranking.test";
+import "./gatherbite/normalize.test";
+import "./gatherbite/retry.test";
+import "./gatherbite/orchestrator.test";
+import "../app/api/gatherbite/route.test";

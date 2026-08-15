@@ -248,6 +248,22 @@ test("one candidate causes exactly one separate runner call and gathers evidence
   assert.equal(result.status === "DECIDED" && result.decision.decision, "APPROVE");
 });
 
+test("the verifier runner receives the request abort signal", async () => {
+  const controller = new AbortController();
+  const result = await runDominosVerifier(
+    { candidate, evidenceContext },
+    {
+      ...deps(async ({ abortSignal, gatherCandidateEvidence }) => {
+        assert.equal(abortSignal, controller.signal);
+        await gatherCandidateEvidence();
+        return approveDecision;
+      }),
+      abortSignal: controller.signal,
+    },
+  );
+  assert.equal(result.status, "DECIDED");
+});
+
 test("no candidate causes no verifier runner or evidence call", async () => {
   let runnerCalls = 0;
   let collectorCalls = 0;

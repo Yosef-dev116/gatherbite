@@ -223,6 +223,21 @@ test("Planner prose cannot create a candidate, invoke verification, or retain an
   assert.equal(result.terminal, false);
 });
 
+test("Planner forwards the request abort signal to its model call", async () => {
+  const controller = new AbortController();
+  const model = new MockLanguageModelV4({
+    doGenerate: async (options) => {
+      assert.equal(options.abortSignal, controller.signal);
+      return textResult();
+    },
+  });
+
+  const result = await runDominosPlanner(fakeInput, dependencies(model, async () => {
+    throw new Error("must not run");
+  }, { abortSignal: controller.signal }));
+  assert.equal(result.terminal, false, "an assertion thrown inside the mock provider must not be swallowed as a passing test");
+});
+
 test("two tool-verified approvals are retained and stop the loop with at most two verifier calls in flight", async () => {
   const first = candidate("candidate-1");
   const second = candidate("candidate-2");
@@ -255,6 +270,36 @@ test("two tool-verified approvals are retained and stop the loop with at most tw
   assert.deepEqual(result.journeys.map((journey) => journey.candidate.candidateId), ["candidate-1", "candidate-2"]);
   assert.equal(result.journeys.every((journey) => journey.outcome.status === "DECIDED" && journey.outcome.decision.decision === "APPROVE"), true);
   assert.equal(model.doGenerateCalls.length, 2, "two approvals must prevent an unnecessary model round");
+});
+
+test("parallel verifier decisions are emitted in candidate admission order", async () => {
+  const first = candidate("candidate-1");
+  const second = candidate("candidate-2");
+  const model = scriptedModel([
+    toolCalls([{ name: "observeDominosOptions" }]),
+    toolCalls([
+      { name: "verifyCandidate", input: first },
+      { name: "verifyCandidate", input: second },
+    ]),
+  ]);
+  const decisions: string[] = [];
+  let releaseFirst!: () => void;
+  const firstGate = new Promise<void>((resolve) => { releaseFirst = resolve; });
+
+  await runDominosPlanner(fakeInput, dependencies(model, async (request, verifierDeps) => {
+    assert.ok(request);
+    if (request.candidate.candidateId === "candidate-1") await firstGate;
+    else releaseFirst();
+    const outcome = decided(request.candidate, "APPROVE");
+    verifierDeps.onEvent?.({ type: "decision", candidateId: request.candidate.candidateId, decision: "APPROVE", reason: "verified" });
+    return outcome;
+  }, {
+    onEvent: (event) => {
+      if (event.type === "decision") decisions.push(event.candidateId);
+    },
+  }));
+
+  assert.deepEqual(decisions, ["candidate-1", "candidate-2"]);
 });
 
 test("one versioned adaptation is linked only to structured ADAPT_ORDER evidence", async () => {

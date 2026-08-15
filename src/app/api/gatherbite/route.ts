@@ -1,122 +1,67 @@
-import { NextResponse } from "next/server";
-import { buildOrder } from "@/lib/agent";
-import { normalizeGatherBiteResults, buildDominosRequirements } from "@/lib/gatherbite";
-import { OrderInputSchema, describeValidationError } from "@/lib/order-input-schema";
-import { getDominosStoreSnapshot } from "@/lib/restaurants/dominos";
-import type { AgentTimingEvent } from "@/lib/agent";
-import type { DominosTimingEvent } from "@/lib/restaurants/dominos";
-import { compareDominosStores, describeDominosTradeoff } from "@/lib/restaurants/dominosCompare";
+import type { ZodError } from "zod";
 
-const DOMINOS_STORE_IDS = ["10950", "10953"];
+import {
+  GatherBiteInputSchema,
+  type GatherBiteEvaluation,
+  type GatherBiteInput,
+} from "@/lib/gatherbite/contracts";
+import { type EventSink } from "@/lib/gatherbite/events";
+import {
+  createDefaultGatherBiteDependencies,
+  evaluateGatherBite,
+} from "@/lib/gatherbite/orchestrator";
+import { createTimingCollector, type TimingEntry } from "@/lib/gatherbite/timing";
 
-interface TimingEntry {
-  name: string;
-  durationMs: number;
-  description: string;
+export const runtime = "nodejs";
+
+type RouteEvaluator = (
+  input: GatherBiteInput,
+  onEvent: EventSink | undefined,
+  onTiming: (entry: TimingEntry) => void,
+) => Promise<GatherBiteEvaluation>;
+
+function validationMessage(error: ZodError): string {
+  const path = error.issues[0]?.path.join(".") ?? "";
+  if (path === "deliveryAddress") return "Enter a delivery address for Delivery or Either.";
+  if (path === "attendees") return "Number of people must be between 1 and 200.";
+  if (path === "budgetCad") return "Budget must be a positive number.";
+  if (path.includes("groups") && path.includes("people")) return "Each dietary group needs at least 1 person.";
+  if (path.includes("restrictions")) return "One of the dietary groups has an invalid restriction selected.";
+  if (path.includes("pizzaPreferences")) return "One of the selected pizza preferences is invalid.";
+  return "Please check your inputs and try again.";
 }
 
-function roundMilliseconds(value: number): number {
-  return Math.round(value * 10) / 10;
-}
+const defaultEvaluator: RouteEvaluator = async (input, onEvent, onTiming) => evaluateGatherBite(
+  input,
+  createDefaultGatherBiteDependencies(onTiming),
+  onEvent,
+);
 
-function serverTimingHeader(entries: TimingEntry[]): string {
-  return entries
-    .map((entry) => `${entry.name};dur=${roundMilliseconds(entry.durationMs)};desc="${entry.description}"`)
-    .join(", ");
-}
-
-function failureMessage(reason: unknown): string {
-  return reason instanceof Error ? reason.message : "The provider evaluation did not complete.";
-}
-
-export async function POST(request: Request) {
-  const requestStartedAt = performance.now();
-  const timings: TimingEntry[] = [];
-  const recordTiming = (name: string, durationMs: number, description: string) => {
-    timings.push({ name, durationMs, description });
-  };
-  const recordAgentTiming = (event: AgentTimingEvent) => {
-    if (event.stage === "groq-total") {
-      recordTiming("groq", event.durationMs, "Little Caesars Groq tool loop");
-      return;
+export function createGatherBitePostHandler(evaluator: RouteEvaluator = defaultEvaluator) {
+  return async function post(request: Request): Promise<Response> {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return Response.json({ error: "Please check your inputs and try again." }, { status: 400 });
     }
-    const tools = event.toolNames?.length ? `: ${event.toolNames.join("+")}` : "";
-    recordTiming(
-      `groq_${event.stepNumber ?? timings.length + 1}`,
-      event.durationMs,
-      `Groq model round ${event.stepNumber ?? "?"}${tools}`
-    );
+
+    const parsed = GatherBiteInputSchema.safeParse(body);
+    if (!parsed.success) {
+      return Response.json({ error: validationMessage(parsed.error) }, { status: 400 });
+    }
+
+    const timing = createTimingCollector();
+    try {
+      const result = await evaluator(parsed.data, undefined, timing.record);
+      return Response.json(result, { headers: { "Server-Timing": timing.serverTiming() } });
+    } catch {
+      return Response.json(
+        { error: "GatherBite could not complete this evaluation." },
+        { status: 500, headers: { "Server-Timing": timing.serverTiming() } },
+      );
+    }
   };
-  const recordDominosTiming = (event: DominosTimingEvent) => {
-    recordTiming(
-      `dom_${event.storeId}_${event.stage}`,
-      event.durationMs,
-      `Domino's ${event.storeId} ${event.stage}`
-    );
-  };
-
-  const body = await request.json();
-  const parsed = OrderInputSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: describeValidationError(parsed.error) }, { status: 400 });
-  }
-
-  const input = parsed.data as Parameters<typeof buildOrder>[0];
-  const groupPeopleSum = input.groups.reduce((sum, group) => sum + group.people, 0);
-  if (groupPeopleSum > input.attendees) {
-    return NextResponse.json(
-      { error: `Dietary group headcounts (${groupPeopleSum}) exceed total attendees (${input.attendees}).` },
-      { status: 400 }
-    );
-  }
-
-  const littleCaesarsStartedAt = performance.now();
-  const littleCaesarsPromise = (process.env.GROQ_API_KEY
-    ? buildOrder(input, { onTiming: recordAgentTiming })
-    : Promise.reject(new Error("The Little Caesars planning agent is unavailable because GROQ_API_KEY is not configured.")))
-    .finally(() => {
-      recordTiming("little_caesars", performance.now() - littleCaesarsStartedAt, "Little Caesars evaluation");
-    });
-  const dominosStartedAt = performance.now();
-  const dominosPromise = Promise.all(
-    DOMINOS_STORE_IDS.map((storeId) => getDominosStoreSnapshot(storeId, recordDominosTiming))
-  ).finally(() => {
-    recordTiming("dominos", performance.now() - dominosStartedAt, "Domino's live evaluation");
-  });
-  const [littleCaesarsSettled, dominosSettled] = await Promise.allSettled([
-    littleCaesarsPromise,
-    dominosPromise,
-  ]);
-
-  const littleCaesarsResult = littleCaesarsSettled.status === "fulfilled" ? littleCaesarsSettled.value : null;
-  const littleCaesarsUnavailableReason =
-    littleCaesarsSettled.status === "rejected" ? failureMessage(littleCaesarsSettled.reason) : undefined;
-
-  const snapshots = dominosSettled.status === "fulfilled" ? dominosSettled.value : [];
-  const dominosRequirements = buildDominosRequirements(input);
-  const comparisonStartedAt = performance.now();
-  const dominosResults = compareDominosStores(snapshots, dominosRequirements);
-  const dominosTradeoff = describeDominosTradeoff(dominosResults);
-  recordTiming("dom_compare", performance.now() - comparisonStartedAt, "Domino's deterministic comparison");
-
-  const normalizationStartedAt = performance.now();
-  const result = normalizeGatherBiteResults(
-    input,
-    littleCaesarsResult,
-    littleCaesarsUnavailableReason,
-    snapshots,
-    dominosResults,
-    dominosTradeoff
-  );
-  recordTiming("normalize", performance.now() - normalizationStartedAt, "Provider normalization");
-  recordTiming("total", performance.now() - requestStartedAt, "GatherBite request");
-
-  console.info(
-    "[GatherBite timing]",
-    timings.map((entry) => `${entry.name}=${roundMilliseconds(entry.durationMs)}ms`).join(" ")
-  );
-
-  return NextResponse.json(result, {
-    headers: { "Server-Timing": serverTimingHeader(timings) },
-  });
 }
+
+export const POST = createGatherBitePostHandler();
