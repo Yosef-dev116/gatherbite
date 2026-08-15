@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "GatherBite",
-  description: "The AI agent that figures out how to feed your group — with deterministic verification before human approval.",
+  description: "The AI agent that figures out how to feed your group.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -35,4 +35,74 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  background-image: radial-gradient(circle at top, rgb(251 230 216 / 48%), transparent 32rem);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+label:has(input:focus-visible) {
+  outline: 3px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  outline-offset: 2px;
+}
+
+@layer components {
+  .form-card {
+    @apply flex flex-col gap-5 rounded-2xl border border-border bg-surface p-5 shadow-[0_14px_40px_rgba(69,45,25,0.06)] sm:p-6;
+  }
+
+  .eyebrow {
+    @apply text-xs font-semibold tracking-[0.16em] text-accent uppercase;
+  }
+
+  .service-choice {
+    @apply cursor-pointer rounded-xl border border-border px-2 py-3 text-center text-sm font-semibold text-muted transition-colors hover:border-accent/50;
+  }
+
+  .service-choice-selected {
+    @apply border-accent bg-accent-soft text-accent;
+  }
+
+  .intent-chip {
+    @apply rounded-full border border-border px-3 py-2 text-sm font-medium text-muted transition-colors hover:border-accent/50;
+  }
+
+  .intent-chip-selected {
+    @apply border-accent bg-accent-soft text-accent;
+  }
+
+  .primary-action {
+    @apply rounded-xl bg-accent px-6 py-4 text-base font-semibold text-accent-foreground shadow-sm transition-colors hover:bg-[#c04a1a] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .secondary-action {
+    @apply rounded-lg border border-accent px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent-soft;
+  }
+
+  .workflow-steps {
+    @apply grid gap-2 text-xs font-medium text-muted sm:grid-cols-3;
+  }
+
+  .workflow-steps li {
+    @apply flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2.5;
+  }
+
+  .workflow-steps span {
+    @apply grid h-5 w-5 shrink-0 place-items-center rounded-full bg-accent-soft text-[0.7rem] font-bold text-accent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
