@@ -12,6 +12,10 @@ export interface ProtectedSliceGroupAllocation {
 
 export interface ProtectedSliceAllocation {
   groups: Record<string, ProtectedSliceGroupAllocation>;
+  /** Preserves every declaration when a duplicate id prevents keyed output. */
+  groupAllocations: ProtectedSliceGroupAllocation[];
+  /** Duplicate identifiers make coverage unprovable and allocation stops. */
+  duplicateGroupIds: string[];
   /** A Set makes accidental reuse across group coverage checks observable. */
   allocatedSliceIds: Set<string>;
 }
@@ -52,34 +56,78 @@ export function allocateProtectedSlices(
   groups: DietaryGroupInput[],
   isCompatible: (pizza: CandidatePizza, group: DietaryGroupInput) => boolean,
 ): ProtectedSliceAllocation {
-  const availableSlices = candidate.pizzas.flatMap(stableSlices);
-  const allocatedSliceIds = new Set<string>();
-  const result: Record<string, ProtectedSliceGroupAllocation> = {};
-
-  for (const group of groups) {
-    const requiredSlices = group.people * SLICES_PER_PERSON;
-    const groupSliceIds: string[] = [];
-
-    for (const slice of availableSlices) {
-      if (groupSliceIds.length >= requiredSlices) break;
-      if (
-        allocatedSliceIds.has(slice.id)
-        || slice.pizza.purpose !== "dietary-protected"
-        || !isCompatible(slice.pizza, group)
-      ) continue;
-      allocatedSliceIds.add(slice.id);
-      groupSliceIds.push(slice.id);
-    }
-
-    result[group.id] = {
-      requiredSlices,
-      allocatedSlices: groupSliceIds.length,
-      missingSlices: Math.max(0, requiredSlices - groupSliceIds.length),
-      allocatedSliceIds: groupSliceIds,
+  const duplicateGroupIds = [...new Set(groups
+    .map((group) => group.id)
+    .filter((groupId, index, allIds) => allIds.indexOf(groupId) !== index))];
+  if (duplicateGroupIds.length > 0) {
+    return {
+      groups: {},
+      groupAllocations: groups.map((group) => ({
+        requiredSlices: group.people * SLICES_PER_PERSON,
+        allocatedSlices: 0,
+        missingSlices: group.people * SLICES_PER_PERSON,
+        allocatedSliceIds: [],
+      })),
+      duplicateGroupIds,
+      allocatedSliceIds: new Set<string>(),
     };
   }
 
-  return { groups: result, allocatedSliceIds };
+  const availableSlices = candidate.pizzas
+    .filter((pizza) => pizza.purpose === "dietary-protected")
+    .flatMap(stableSlices);
+  const allocatedSliceIds = new Set<string>();
+  const slots = groups.flatMap((group) => Array.from(
+    { length: group.people * SLICES_PER_PERSON },
+    (_, index) => ({ key: `${group.id}:${index}`, group }),
+  ));
+  const slotByKey = new Map(slots.map((slot) => [slot.key, slot]));
+  const assignedSliceToSlot = new Map<string, string>();
+
+  /**
+   * Deterministic augmenting-path matching. A later constrained group can
+   * reclaim its only compatible slice and move an earlier broad group to an
+   * alternate slice, which a greedy pass cannot do.
+   */
+  const assign = (slotKey: string, attemptedSlices: Set<string>, attemptedSlots: Set<string>): boolean => {
+    if (attemptedSlots.has(slotKey)) return false;
+    attemptedSlots.add(slotKey);
+    const slot = slotByKey.get(slotKey);
+    if (!slot) return false;
+
+    for (const slice of availableSlices) {
+      if (attemptedSlices.has(slice.id) || !isCompatible(slice.pizza, slot.group)) continue;
+      attemptedSlices.add(slice.id);
+      const previousSlot = assignedSliceToSlot.get(slice.id);
+      if (!previousSlot || assign(previousSlot, attemptedSlices, attemptedSlots)) {
+        assignedSliceToSlot.set(slice.id, slotKey);
+        return true;
+      }
+    }
+    return false;
+  };
+
+  for (const slot of slots) {
+    assign(slot.key, new Set<string>(), new Set<string>());
+  }
+
+  const result: Record<string, ProtectedSliceGroupAllocation> = {};
+  const groupAllocations = groups.map((group) => {
+    const groupSliceIds = availableSlices
+      .filter((slice) => slotByKey.get(assignedSliceToSlot.get(slice.id) ?? "")?.group.id === group.id)
+      .map((slice) => slice.id);
+    for (const id of groupSliceIds) allocatedSliceIds.add(id);
+    const allocation = {
+      requiredSlices: group.people * SLICES_PER_PERSON,
+      allocatedSlices: groupSliceIds.length,
+      missingSlices: Math.max(0, group.people * SLICES_PER_PERSON - groupSliceIds.length),
+      allocatedSliceIds: groupSliceIds,
+    };
+    result[group.id] = allocation;
+    return allocation;
+  });
+
+  return { groups: result, groupAllocations, duplicateGroupIds, allocatedSliceIds };
 }
 
 /**

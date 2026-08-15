@@ -25,7 +25,19 @@ export const DietaryGroupSchema = z.object({
   notes: z.string().trim().max(200).optional(),
 });
 
-export const DietaryGroupsSchema = z.array(DietaryGroupSchema).max(10);
+export const DietaryGroupsSchema = z.array(DietaryGroupSchema).max(10).superRefine((groups, ctx) => {
+  const seen = new Set<string>();
+  for (const [index, group] of groups.entries()) {
+    if (seen.has(group.id)) {
+      ctx.addIssue({
+        code: "custom",
+        path: [index, "id"],
+        message: `Duplicate dietary group identifier: ${group.id}`,
+      });
+    }
+    seen.add(group.id);
+  }
+});
 export const PizzaPreferencesSchema = z.array(
   z.enum(ALL_PIZZA_PREFERENCES as [PizzaPreference, ...PizzaPreference[]]),
 ).max(ALL_PIZZA_PREFERENCES.length);

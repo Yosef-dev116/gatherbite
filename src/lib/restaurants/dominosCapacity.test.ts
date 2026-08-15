@@ -95,6 +95,71 @@ test("allocateProtectedSlices does not rely on a general pizza for dietary cover
   assert.equal(allocation.groups.veg.missingSlices, 6);
 });
 
+test("allocateProtectedSlices reserves constrained slices when a complete assignment exists", () => {
+  const order = candidate([
+    pizza("shared", 3, ["broad", "strict"]),
+    pizza("broad-only", 3, ["broad"]),
+  ]);
+  const groups: DietaryGroupInput[] = [
+    { id: "broad", people: 1, restrictions: ["vegetarian"] },
+    { id: "strict", people: 1, restrictions: ["noPork"] },
+  ];
+
+  const allocation = allocateProtectedSlices(
+    order,
+    groups,
+    (line, group) => line.protectsGroupIds.includes(group.id),
+  );
+
+  assert.equal(allocation.groups.broad.allocatedSlices, 3);
+  assert.equal(allocation.groups.strict.allocatedSlices, 3);
+  assert.deepEqual(allocation.groups.broad.allocatedSliceIds, [
+    "broad-only:0:0",
+    "broad-only:0:1",
+    "broad-only:0:2",
+  ]);
+  assert.deepEqual(allocation.groups.strict.allocatedSliceIds, [
+    "shared:0:0",
+    "shared:0:1",
+    "shared:0:2",
+  ]);
+});
+
+test("allocateProtectedSlices fails closed and exposes duplicate dietary group identifiers", () => {
+  const order = candidate([pizza("protected", 6, ["duplicate"])]);
+  const duplicateGroups: DietaryGroupInput[] = [
+    { id: "duplicate", people: 1, restrictions: ["vegetarian"] },
+    { id: "duplicate", people: 1, restrictions: ["noPork"] },
+  ];
+
+  const allocation = allocateProtectedSlices(order, duplicateGroups, () => true);
+
+  assert.deepEqual(allocation.duplicateGroupIds, ["duplicate"]);
+  assert.equal(allocation.allocatedSliceIds.size, 0);
+  assert.deepEqual(allocation.groups, {});
+  assert.deepEqual(allocation.groupAllocations.map((group) => group.missingSlices), [3, 3]);
+});
+
+test("allocateProtectedSlices keeps distinct group ids distinct when one id prefixes another", () => {
+  const order = candidate([
+    pizza("first", 3, ["team"]),
+    pizza("second", 3, ["team:late"]),
+  ]);
+  const groups: DietaryGroupInput[] = [
+    { id: "team", people: 1, restrictions: ["vegetarian"] },
+    { id: "team:late", people: 1, restrictions: ["noPork"] },
+  ];
+
+  const allocation = allocateProtectedSlices(
+    order,
+    groups,
+    (line, group) => line.protectsGroupIds.includes(group.id),
+  );
+
+  assert.equal(allocation.groups.team.allocatedSlices, 3);
+  assert.equal(allocation.groups["team:late"].allocatedSlices, 3);
+});
+
 test("checkTotalPizzaCapacity counts only trusted pizza slices and retains the full attendee requirement", () => {
   const order = candidate([
     pizza("known-pizza", 8),

@@ -128,16 +128,71 @@ test("configureGeneralPreferences records an unavailable intent without invalida
 test("configureGeneralPreferences records an avoidance-conflicting intent as unmet", () => {
   const original = candidate([pizza("general", "general")]);
 
-  const result = configureGeneralPreferences(original, catalog(), ["meatHeavy"], ["no pork"]);
+  const result = configureGeneralPreferences(
+    original,
+    catalog(),
+    ["meatHeavy"],
+    ["no pepperoni", "no sausage", "no beef crumble", "no bacon", "no ham"],
+  );
 
   assert.deepEqual(result.evidence.represented, []);
   assert.deepEqual(result.evidence.unmet, [
-    { preference: "meatHeavy", reason: "Meat lovers conflicts with the organizer's avoidance note: no pork." },
+    {
+      preference: "meatHeavy",
+      reason: "This live store catalogue does not expose enough verified meat toppings for Meat lovers after applying the organizer's avoidance notes.",
+    },
   ]);
   assert.deepEqual(result.candidate, original);
 });
 
-test("configureGeneralPreferences leaves a capacity-sufficient general order simple when no preference is supplied", () => {
+test("configureGeneralPreferences removes an actually avoided live veggie topping when a supported configuration remains", () => {
+  const original = candidate([pizza("general", "general")]);
+
+  const result = configureGeneralPreferences(original, catalog(), ["veggie"], ["no mushrooms"]);
+
+  assert.deepEqual(result.evidence.represented, ["veggie"]);
+  assert.deepEqual(result.evidence.unmet, []);
+  assert.deepEqual(result.candidate.pizzas[0]?.toppings, [
+    { code: "G", quantity: 1 },
+    { code: "O", quantity: 1 },
+  ]);
+});
+
+test("configureGeneralPreferences removes an actually avoided live meat topping when Meat lovers remains supported", () => {
+  const original = candidate([pizza("general", "general")]);
+
+  const result = configureGeneralPreferences(original, catalog(), ["meatHeavy"], ["no bacon"]);
+
+  assert.deepEqual(result.evidence.represented, ["meatHeavy"]);
+  assert.deepEqual(result.evidence.unmet, []);
+  assert.deepEqual(result.candidate.pizzas[0]?.toppings, [
+    { code: "P", quantity: 1 },
+    { code: "S", quantity: 1 },
+    { code: "B", quantity: 1 },
+  ]);
+});
+
+test("configureGeneralPreferences splits each general pizza unit so preferences distribute independently", () => {
+  const original = candidate([{ ...pizza("general", "general"), quantity: 2 }]);
+
+  const result = configureGeneralPreferences(original, catalog(), ["pepperoni", "veggie"], []);
+
+  assert.equal(result.candidate.pizzas.length, 2);
+  assert.deepEqual(result.candidate.pizzas.map(({ lineId, quantity }) => ({ lineId, quantity })), [
+    { lineId: "general:unit:1", quantity: 1 },
+    { lineId: "general:unit:2", quantity: 1 },
+  ]);
+  assert.deepEqual(result.candidate.pizzas[0]?.toppings, [{ code: "P", quantity: 1 }]);
+  assert.deepEqual(result.candidate.pizzas[1]?.toppings, [
+    { code: "G", quantity: 1 },
+    { code: "M", quantity: 1 },
+    { code: "O", quantity: 1 },
+  ]);
+  assert.equal(result.candidate.pizzas.reduce((sum, item) => sum + item.quantity, 0), 2);
+  assert.deepEqual(original, candidate([{ ...pizza("general", "general"), quantity: 2 }]));
+});
+
+test("configureGeneralPreferences makes zero configuration edits when no preference is supplied", () => {
   const original = candidate([pizza("general-a", "general"), pizza("general-b", "general")]);
 
   const result = configureGeneralPreferences(original, catalog(), [], []);
@@ -145,5 +200,7 @@ test("configureGeneralPreferences leaves a capacity-sufficient general order sim
   assert.deepEqual(result.evidence, { requested: [], represented: [], unmet: [] });
   assert.deepEqual(result.candidate, original);
   assert.notEqual(result.candidate, original);
+  assert.equal(result.candidate.pizzas.length, original.pizzas.length);
+  assert.deepEqual(result.candidate.pizzas.map((pizza) => pizza.toppings), original.pizzas.map((pizza) => pizza.toppings));
   assert.equal(result.candidate.expectedPricing.totalCad, 34.48);
 });

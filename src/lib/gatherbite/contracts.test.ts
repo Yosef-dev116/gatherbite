@@ -34,3 +34,21 @@ test("dietary groups may overlap", () => {
     pizzaPreferences: ["pepperoni"],
   }).success, true);
 });
+
+test("duplicate dietary group identifiers are rejected before verification", () => {
+  const result = GatherBiteInputSchema.safeParse({
+    attendees: 4,
+    budgetCad: 100,
+    serviceMethod: "carryout",
+    groups: [
+      { id: "same", people: 2, restrictions: ["vegetarian"] },
+      { id: "same", people: 2, restrictions: ["noPork"] },
+    ],
+    pizzaPreferences: [],
+  });
+
+  assert.equal(result.success, false);
+  if (!result.success) {
+    assert.equal(result.error.issues.some((issue) => issue.message.includes("Duplicate dietary group identifier")), true);
+  }
+});
