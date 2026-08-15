@@ -29,3 +29,4 @@ import "./cart/dominosCartGuard.test";
 import "./cart/dominosCartFallback.test";
 import "./cart/dominosCartExecutor.test";
 import "./cart/prepareCart.test";
+import "./groq.test";
