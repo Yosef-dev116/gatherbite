@@ -61,7 +61,18 @@ function completeEventWithFacts(facts: unknown) {
     type: "complete" as const,
     result: {
       recommended: null,
-      alternatives: [{ candidate, decision, evidence, storeAddress: "386 University Ave, Charlottetown, PE", relevantWaitMinutes: null, recommendationReason: "Verified" }],
+      alternatives: [{
+        candidate,
+        decision,
+        evidence,
+        storeAddress: "386 University Ave, Charlottetown, PE",
+        displayLines: [{
+          lineId: "line-1", quantity: 1, productName: "Pizza", variantName: null,
+          sauceName: "Pizza Sauce", cheeseName: "Cheese", toppings: [],
+        }],
+        relevantWaitMinutes: null,
+        recommendationReason: "Verified",
+      }],
       journeys: [],
       events: [],
       noViableReason: null,

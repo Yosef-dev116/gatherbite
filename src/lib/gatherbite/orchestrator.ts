@@ -25,6 +25,7 @@ import type {
 } from "./contracts";
 import { createEventCollector, publicEvaluationError, type EventSink } from "./events";
 import { normalizeDominosEvaluation } from "./normalize";
+import type { DominosOptionPresentationSource } from "./ranking";
 import { isTransientGatherBiteError, withOneTransientRetry } from "./retry";
 import type { TimingEntry } from "./timing";
 
@@ -212,11 +213,16 @@ export async function evaluateGatherBite(
   }, deps.deadlineMs);
 
   const observationStartedAt = deps.now();
-  let resolvedStoreAddresses: ReadonlyMap<string, string | null> = new Map();
+  let resolvedPresentationSources: ReadonlyMap<string, DominosOptionPresentationSource> = new Map();
   const observationPromise = createObservationPromise(input, deps, controller.signal)
     .then((observation) => {
-      resolvedStoreAddresses = new Map(
-        observation.snapshots.map((snapshot) => [snapshot.storeId, snapshot.address]),
+      resolvedPresentationSources = new Map(
+        observation.snapshots.flatMap((snapshot) => {
+          const catalog = observation.catalogs.get(snapshot.storeId);
+          return catalog
+            ? [[snapshot.storeId, { storeAddress: snapshot.address, catalog }] as const]
+            : [];
+        }),
       );
       return observation;
     })
@@ -252,7 +258,7 @@ export async function evaluateGatherBite(
     planner.journeys,
     input.pizzaPreferences,
     events.events(),
-    resolvedStoreAddresses,
+    resolvedPresentationSources,
   );
   deps.onTiming?.({ name: "ranking", durationMs: elapsed(deps.now, rankingStartedAt), description: "Option ranking" });
   deps.onTiming?.({ name: "total", durationMs: elapsed(deps.now, totalStartedAt), description: "GatherBite evaluation" });

@@ -37,6 +37,11 @@ export function VerificationJourney({ journeys }: { journeys: readonly Candidate
         {journeys.map((journey) => {
           const rejected = journey.outcome.status === "DECIDED" && journey.outcome.decision.decision === "REJECT";
           const approved = journey.outcome.status === "DECIDED" && journey.outcome.decision.decision === "APPROVE";
+          const outcomeClass = rejected
+            ? "rounded-lg bg-danger-soft px-3 py-2.5 text-sm text-danger"
+            : approved
+              ? "rounded-lg bg-success-soft px-3 py-2.5 text-sm text-success"
+              : "rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-muted";
           return (
             <details
               key={`${journey.candidate.candidateId}:${journey.candidate.candidateVersion}`}
@@ -60,7 +65,7 @@ export function VerificationJourney({ journeys }: { journeys: readonly Candidate
                 )}
                 <OrderLines pizzas={journey.candidate.pizzas} />
                 {journey.outcome.evidence && <CheckGrid checks={journey.outcome.evidence.checks} />}
-                <div className={rejected ? "rounded-lg bg-danger-soft px-3 py-2.5 text-sm text-danger" : "rounded-lg bg-success-soft px-3 py-2.5 text-sm text-success"}>
+                <div className={outcomeClass}>
                   <span className="font-semibold">{outcomeLabel(journey)}: </span>{outcomeReason(journey)}
                 </div>
                 <details className="evidence-details">

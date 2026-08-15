@@ -110,6 +110,8 @@ export interface DominosToppingOption {
 
 export interface DominosVariant {
   code: string;
+  /** Exact live organizer-facing variant name, or null when absent. */
+  name?: string | null;
   productCode: string | null;
   sizeCode: string | null;
   crustCode: string | null;
@@ -369,6 +371,9 @@ function extractVariants(menu: Record<string, unknown>, products: readonly Domin
     const tags = variant.Tags as Record<string, unknown> | undefined;
     return {
       code,
+      name: typeof variant.Name === "string" && variant.Name.trim().length > 0
+        ? variant.Name.trim()
+        : null,
       productCode: directOrNestedCode(variant, "ProductCode", "Product") ?? productByVariant.get(code) ?? null,
       sizeCode: directOrNestedCode(variant, "SizeCode", "Size"),
       crustCode: directOrNestedCode(variant, "CrustCode", "Crust"),

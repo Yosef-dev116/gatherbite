@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { CandidateEvidenceBundle, CandidateJourney, DominosCandidate, VerificationOutcome } from "./contracts";
+import { buildDominosCatalog } from "../restaurants/dominosCatalog";
+import type { DominosStoreSnapshot } from "../restaurants/dominos";
 import { normalizeDominosEvaluation } from "./normalize";
 
 function candidate(id: string, method: "delivery" | "carryout" = "carryout"): DominosCandidate {
@@ -46,15 +48,35 @@ test("normalization retains exact configured lines, hard checks, relevant wait, 
   const rejected = journey(candidate("rejected", "delivery"), false, "UNKNOWN");
   const events = [{ type: "decision" as const, candidateId: "rejected", decision: "REJECT" as const, reason: "The all-in total is unknown." }];
 
+  const displaySnapshot: DominosStoreSnapshot = {
+    provider: "dominos", storeId: "10950", address: "386 University Ave, Charlottetown, PE",
+    isOpen: true, isOnlineNow: true, deliveryAvailable: true, carryoutAvailable: true,
+    deliveryWaitMinutes: { min: 20, max: 30 }, carryoutWaitMinutes: { min: 8, max: 12 },
+    deals: [],
+    products: [{ id: "S_PIZZA", name: "Pizza", category: "Pizza", toppings: ["Pizza Sauce", "Cheese"], defaultToppingCodes: ["X", "C"], variantCodes: ["12SCREEN"], priceInfoIfAvailable: 14.99 }],
+    variants: [{ code: "12SCREEN", name: '12" Hand Tossed', productCode: "S_PIZZA", sizeCode: "12", crustCode: "HANDTOSS", priceCad: 14.99, trustedSlices: 8 }],
+    toppingOptions: [{ code: "X", name: "Pizza Sauce", category: "Sauce" }, { code: "C", name: "Cheese", category: "Cheese" }, { code: "P", name: "Pepperoni", category: "Pizza" }],
+    fetchedAt: "2026-08-15T12:00:00.000Z", status: "ok", errors: [],
+  };
   const normalized = normalizeDominosEvaluation(
     [rejected, approved],
     ["pepperoni", "veggie"],
     events,
-    new Map([["10950", "386 University Ave, Charlottetown, PE"]]),
+    new Map([["10950", { storeAddress: displaySnapshot.address, catalog: buildDominosCatalog(displaySnapshot) }]]),
   );
 
   assert.equal(normalized.recommended?.candidate.candidateId, "approved");
   assert.equal(normalized.recommended?.storeAddress, "386 University Ave, Charlottetown, PE");
+  assert.deepEqual(normalized.recommended?.displayLines[1], {
+    lineId: "approved-general",
+    quantity: 2,
+    productName: "Pizza",
+    variantName: '12" Hand Tossed',
+    sauceName: "Pizza Sauce",
+    cheeseName: "Cheese",
+    toppings: [{ code: "P", quantity: 1, name: "Pepperoni" }],
+  });
+  assert.deepEqual(normalized.recommended?.candidate.pizzas[1]?.toppings, [{ code: "P", quantity: 1 }]);
   assert.deepEqual(normalized.recommended?.candidate.pizzas[0]?.protectsGroupIds, ["veg"]);
   assert.deepEqual(normalized.recommended?.candidate.pizzas[1]?.toppings, [{ code: "P", quantity: 1 }]);
   assert.equal(normalized.recommended?.evidence.checks.capacity.status, "PASS");
@@ -87,8 +109,35 @@ test("normalization keeps a genuinely missing live store address unknown", () =>
     [journey(candidate("approved"), true)],
     [],
     [],
-    new Map([["10950", null]]),
+    new Map(),
   );
 
   assert.equal(normalized.recommended?.storeAddress, null);
+  assert.deepEqual(normalized.recommended?.displayLines.map((line) => ({
+    productName: line.productName,
+    variantName: line.variantName,
+    sauceName: line.sauceName,
+    cheeseName: line.cheeseName,
+    toppingNames: line.toppings.map(({ name }) => name),
+  })), [
+    { productName: null, variantName: null, sauceName: null, cheeseName: null, toppingNames: [] },
+    { productName: null, variantName: null, sauceName: null, cheeseName: null, toppingNames: [null] },
+  ]);
+});
+
+test("display names fail closed when the catalog is not the candidate snapshot", () => {
+  const value = candidate("approved");
+  const staleSnapshot: DominosStoreSnapshot = {
+    provider: "dominos", storeId: "10950", address: "stale address", isOpen: true, isOnlineNow: true,
+    deliveryAvailable: true, carryoutAvailable: true, deliveryWaitMinutes: null, carryoutWaitMinutes: null,
+    deals: [], products: [{ id: "S_PIZZA", name: "Wrong Pizza", category: "Pizza", toppings: [], defaultToppingCodes: [], variantCodes: ["12SCREEN"], priceInfoIfAvailable: null }],
+    variants: [], toppingOptions: [], fetchedAt: "2026-08-15T11:00:00.000Z", status: "ok", errors: [],
+  };
+  const normalized = normalizeDominosEvaluation(
+    [journey(value, true)], [], [],
+    new Map([["10950", { storeAddress: staleSnapshot.address, catalog: buildDominosCatalog(staleSnapshot) }]]),
+  );
+
+  assert.equal(normalized.recommended?.storeAddress, null);
+  assert.equal(normalized.recommended?.displayLines[0]?.productName, null);
 });

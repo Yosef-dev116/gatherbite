@@ -41,7 +41,7 @@ export function DecisionReview({
 
       <div>
         <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">Exact configuration</h3>
-        <OrderLines pizzas={option.candidate.pizzas} />
+        <OrderLines pizzas={option.candidate.pizzas} displayLines={option.displayLines} />
       </div>
 
       <CheckGrid checks={option.evidence.checks} />

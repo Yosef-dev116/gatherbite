@@ -4,6 +4,7 @@ import type {
   CandidateJourney,
   CandidatePizza,
   EvidenceCheck,
+  OrganizerPizzaDisplayLine,
   VerifiedDominosOption,
 } from "@/lib/gatherbite/contracts";
 
@@ -33,28 +34,66 @@ function toppingDescription(line: CandidatePizza): string {
   return `Toppings ${line.toppings.map(({ code, quantity }) => `${code} × ${quantity}`).join(", ")}`;
 }
 
-export function OrderLines({ pizzas }: { pizzas: readonly CandidatePizza[] }) {
+function namedComponents(display: OrganizerPizzaDisplayLine, line: CandidatePizza): string {
+  const sauce = line.sauceCode === null ? "No sauce" : display.sauceName ?? "Sauce name unavailable";
+  const cheese = line.cheeseCode === null ? "No cheese" : display.cheeseName ?? "Cheese name unavailable";
+  const toppings = display.toppings.length === 0
+    ? "No added toppings"
+    : display.toppings.map(({ name, quantity }) => `${name ?? "Topping name unavailable"} × ${quantity}`).join(", ");
+  return `${sauce} · ${cheese} · ${toppings}`;
+}
+
+export function OrderLines({
+  pizzas,
+  displayLines,
+}: {
+  pizzas: readonly CandidatePizza[];
+  displayLines?: readonly OrganizerPizzaDisplayLine[];
+}) {
+  const displayByLineId = new Map<string, OrganizerPizzaDisplayLine>(
+    displayLines?.map((line) => [line.lineId, line] as const),
+  );
   return (
     <ul className="order-lines">
-      {pizzas.map((line) => (
-        <li key={line.lineId}>
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <span className="font-semibold">{line.quantity} × {line.sizeCode}&quot; {line.crustCode} pizza</span>
-            <span className="text-xs text-muted">{line.quantity * line.trustedSlicesPerPizza} verified slices</span>
-          </div>
-          <p className="mt-1 text-xs leading-relaxed text-muted">
-            Product {line.productCode} · Variant {line.variantCode}
-            {line.sauceCode ? ` · Sauce ${line.sauceCode}` : " · No sauce code"}
-            {line.cheeseCode ? ` · Cheese ${line.cheeseCode}` : " · No cheese code"}
-            {` · ${toppingDescription(line)}`}
-          </p>
-          {line.purpose === "dietary-protected" && (
-            <p className="mt-1 text-xs font-semibold text-success">
-              Protected for {line.protectsGroupIds.join(", ")}
-            </p>
-          )}
-        </li>
-      ))}
+      {pizzas.map((line) => {
+        const display = displayByLineId.get(line.lineId);
+        return (
+          <li key={line.lineId}>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="font-semibold">
+                {display
+                  ? `${line.quantity} × ${display.productName ?? "Pizza name unavailable"}${display.variantName ? ` · ${display.variantName}` : " · Variant name unavailable"}`
+                  : <>{line.quantity} × {line.sizeCode}&quot; {line.crustCode} pizza</>}
+              </span>
+              <span className="text-xs text-muted">{line.quantity * line.trustedSlicesPerPizza} verified slices</span>
+            </div>
+            {display && <p className="mt-1 text-sm leading-relaxed text-muted">{namedComponents(display, line)}</p>}
+            {display ? (
+              <details className="execution-details mt-2">
+                <summary>Execution codes</summary>
+                <p className="mt-1 text-xs leading-relaxed text-muted">
+                  Product {line.productCode} · Variant {line.variantCode} · Size {line.sizeCode} · Crust {line.crustCode}
+                  {line.sauceCode ? ` · Sauce ${line.sauceCode}` : " · No sauce code"}
+                  {line.cheeseCode ? ` · Cheese ${line.cheeseCode}` : " · No cheese code"}
+                  {` · ${toppingDescription(line)}`}
+                </p>
+              </details>
+            ) : (
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                Product {line.productCode} · Variant {line.variantCode}
+                {line.sauceCode ? ` · Sauce ${line.sauceCode}` : " · No sauce code"}
+                {line.cheeseCode ? ` · Cheese ${line.cheeseCode}` : " · No cheese code"}
+                {` · ${toppingDescription(line)}`}
+              </p>
+            )}
+            {line.purpose === "dietary-protected" && (
+              <p className="mt-1 text-xs font-semibold text-success">
+                Protected for {line.protectsGroupIds.join(", ")}
+              </p>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -143,7 +182,7 @@ function OptionCard({
         <div><span>Capacity</span><strong>{providedSlices} verified slices</strong></div>
       </div>
 
-      <OrderLines pizzas={option.candidate.pizzas} />
+      <OrderLines pizzas={option.candidate.pizzas} displayLines={option.displayLines} />
       <CheckGrid checks={option.evidence.checks} />
       <PreferenceSummary option={option} />
 

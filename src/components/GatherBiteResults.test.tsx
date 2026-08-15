@@ -117,6 +117,19 @@ function option(value: DominosCandidate, reason: string): VerifiedDominosOption 
     storeAddress: value.storeId === "10950"
       ? "386 University Ave, Charlottetown, PE"
       : "14 Kinlock Rd Unit 11, Stratford, PE",
+    displayLines: value.pizzas.map((line) => ({
+      lineId: line.lineId,
+      quantity: line.quantity,
+      productName: "Pizza",
+      variantName: '12" Hand Tossed',
+      sauceName: "Pizza Sauce",
+      cheeseName: "Cheese",
+      toppings: line.toppings.map(({ code, quantity }) => ({
+        code,
+        quantity,
+        name: code === "P" ? "Pepperoni" : null,
+      })),
+    })),
     relevantWaitMinutes: { min: 8, max: 12 },
     recommendationReason: reason,
   };
@@ -166,6 +179,25 @@ test("a first-pass approval stays compact and never claims an adaptation happene
   assert.equal(/adapted|rejected/i.test(html), false);
 });
 
+test("a verifier error uses neutral unknown styling and never looks approved", () => {
+  const value = candidate("verifier-error");
+  const journey: CandidateJourney = {
+    candidate: value,
+    adaptedFromCandidateId: null,
+    outcome: {
+      status: "VERIFIER_ERROR",
+      reason: "Verification could not complete safely.",
+      evidence: evidence(value),
+    },
+  };
+  const html = renderToStaticMarkup(createElement(VerificationJourney, { journeys: [journey] }));
+
+  assert.match(html, /verification-unknown/);
+  assert.match(html, /Verification could not complete safely/);
+  assert.match(html, /border border-border bg-background[^>]*>[\s\S]*Verification could not complete safely/);
+  assert.equal(/bg-success-soft[^>]*>[\s\S]*Verification could not complete safely/.test(html), false);
+});
+
 test("recommendation leads while alternatives and rejected checks remain available without auto-selection", () => {
   const recommended = option(candidate("recommended"), "Best verified preference fit and total.");
   const alternative = option(candidate("alternative", 1, "10953"), "Another verified option.");
@@ -181,6 +213,10 @@ test("recommendation leads while alternatives and rejected checks remain availab
   assert.match(html, /GatherBite recommends/);
   assert.match(html, /386 University Ave/);
   assert.match(html, /Carryout/);
+  assert.match(html, /2 × Pizza · 12&quot; Hand Tossed/);
+  assert.match(html, /Pepperoni/);
+  assert.match(html, /Execution codes/);
+  assert.match(html, /Product S_PIZZA · Variant 12SCREEN/);
   assert.match(html, /\$34\.50 CAD/);
   assert.match(html, /8–12 min/);
   assert.match(html, /Capacity[^<]*<\/span><span[^>]*>Pass/);
@@ -226,7 +262,10 @@ test("decision review shows the exact approved configuration and keeps checkout 
 
   assert.match(html, /Your decision/);
   assert.match(html, /Store 10950/);
-  assert.match(html, /1 × 12&quot; HANDTOSS pizza/);
+  assert.match(html, /1 × Pizza · 12&quot; Hand Tossed/);
+  assert.match(html, /Pizza Sauce/);
+  assert.match(html, /Pepperoni/);
+  assert.match(html, /Execution codes/);
   assert.match(html, /Sauce X/);
   assert.match(html, /Cheese C/);
   assert.match(html, /Toppings P × 1/);

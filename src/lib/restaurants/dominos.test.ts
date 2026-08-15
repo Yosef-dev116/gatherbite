@@ -143,6 +143,7 @@ async function run() {
       () => getDominosStoreSnapshot("10950")
     );
     check("real coupon 3021 remains capacity-unknown", snapshot.deals.find(({ code }) => code === "3021")?.slices === null);
+    check("variant 12SCREEN retains its live organizer-facing name", snapshot.variants?.find(({ code }) => code === "12SCREEN")?.name === '12" Hand Tossed');
     check("variant 12SCREEN derives eight slices from its explicit variant tags", snapshot.variants?.find(({ code }) => code === "12SCREEN")?.trustedSlices === 8);
     check("variant capacity retains its exact product link", snapshot.variants?.find(({ code }) => code === "12SCREEN")?.productCode === "S_PIZZA");
   }

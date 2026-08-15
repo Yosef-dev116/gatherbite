@@ -5,6 +5,7 @@ import type {
   PublicGatherBiteEvent,
 } from "./contracts";
 import { rankApprovedDominosOptions } from "./ranking";
+import type { DominosOptionPresentationSource } from "./ranking";
 
 const EMPTY_REASON = "GatherBite could not verify a Domino's option from the available live data.";
 const VERIFIER_REASON = "Verification could not complete safely for the available Domino's option.";
@@ -27,9 +28,9 @@ export function normalizeDominosEvaluation(
   journeys: readonly CandidateJourney[],
   preferences: readonly PizzaPreference[],
   events: readonly PublicGatherBiteEvent[],
-  storeAddresses: ReadonlyMap<string, string | null> = new Map(),
+  presentationSources: ReadonlyMap<string, DominosOptionPresentationSource> = new Map(),
 ): GatherBiteEvaluation {
-  const ranked = rankApprovedDominosOptions(journeys, preferences, storeAddresses);
+  const ranked = rankApprovedDominosOptions(journeys, preferences, presentationSources);
   return {
     recommended: ranked.recommended,
     alternatives: ranked.alternatives,

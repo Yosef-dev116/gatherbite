@@ -242,9 +242,35 @@ export interface VerifiedDominosOption {
   evidence: CandidateEvidenceBundle;
   /** Live public address from the same immutable store observation, or null. */
   storeAddress: string | null;
+  /** Human-readable names resolved from the candidate's exact live catalog. */
+  displayLines: OrganizerPizzaDisplayLine[];
   relevantWaitMinutes: WaitMinutes | null;
   recommendationReason: string;
 }
+
+export interface OrganizerPizzaDisplayLine {
+  lineId: string;
+  quantity: number;
+  productName: string | null;
+  variantName: string | null;
+  sauceName: string | null;
+  cheeseName: string | null;
+  toppings: Array<{ code: string; quantity: number; name: string | null }>;
+}
+
+export const OrganizerPizzaDisplayLineSchema = z.object({
+  lineId: z.string().min(1),
+  quantity: z.number().int().positive(),
+  productName: z.string().min(1).nullable(),
+  variantName: z.string().min(1).nullable(),
+  sauceName: z.string().min(1).nullable(),
+  cheeseName: z.string().min(1).nullable(),
+  toppings: z.array(z.object({
+    code: z.string().min(1),
+    quantity: z.number().int().positive(),
+    name: z.string().min(1).nullable(),
+  })),
+});
 
 export const VerifiedDominosOptionSchema = z.object({
   candidate: DominosCandidateSchema,
@@ -259,6 +285,7 @@ export const VerifiedDominosOptionSchema = z.object({
   }),
   evidence: CandidateEvidenceBundleSchema,
   storeAddress: z.string().min(1).nullable(),
+  displayLines: z.array(OrganizerPizzaDisplayLineSchema),
   relevantWaitMinutes: WaitMinutesSchema.nullable(),
   recommendationReason: z.string(),
 });

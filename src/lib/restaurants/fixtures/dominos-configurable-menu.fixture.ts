@@ -98,6 +98,7 @@ export const DOMINOS_CONFIGURABLE_MENU_RAW_FIXTURE = {
   Variants: {
     "12SCREEN": {
       Code: DOMINOS_CONFIGURABLE_MENU_FIXTURE.variant.code,
+      Name: DOMINOS_CONFIGURABLE_MENU_FIXTURE.variant.name,
       ProductCode: DOMINOS_CONFIGURABLE_MENU_FIXTURE.variant.productCode,
       Size: { Code: DOMINOS_CONFIGURABLE_MENU_FIXTURE.variant.size.code },
       Crust: { Code: DOMINOS_CONFIGURABLE_MENU_FIXTURE.variant.crust.code },

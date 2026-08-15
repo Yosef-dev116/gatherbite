@@ -20,7 +20,7 @@ function snapshot(storeId: string): DominosStoreSnapshot {
     deliveryAvailable: true, carryoutAvailable: true, deliveryWaitMinutes: { min: 20, max: 30 },
     carryoutWaitMinutes: { min: 8, max: 12 }, deals: [],
     products: [{ id: "S_PIZZA", name: "Pizza", category: "Pizza", toppings: ["Pizza Sauce", "Cheese", "Pepperoni"], defaultToppingCodes: ["X", "C"], variantCodes: ["12SCREEN"], priceInfoIfAvailable: 14.99 }],
-    variants: [{ code: "12SCREEN", productCode: "S_PIZZA", sizeCode: "12", crustCode: "HANDTOSS", priceCad: 14.99, trustedSlices: 8 }],
+    variants: [{ code: "12SCREEN", name: '12" Hand Tossed', productCode: "S_PIZZA", sizeCode: "12", crustCode: "HANDTOSS", priceCad: 14.99, trustedSlices: 8 }],
     toppingOptions: [{ code: "X", name: "Pizza Sauce", category: "Sauce" }, { code: "C", name: "Cheese", category: "Cheese" }, { code: "P", name: "Pepperoni", category: "Pizza" }],
     fetchedAt, status: "ok", errors: [],
   };
@@ -92,6 +92,9 @@ test("store observation and serviceability start concurrently, fetch once, and s
   assert.equal(plannerCalls, 1);
   assert.equal(result.recommended !== null, true);
   assert.equal(result.recommended?.storeAddress, "10950 public address");
+  assert.equal(result.recommended?.displayLines[0]?.productName, "Pizza");
+  assert.equal(result.recommended?.displayLines[0]?.variantName, '12" Hand Tossed');
+  assert.equal(result.recommended?.displayLines[0]?.toppings[0]?.name, "Pepperoni");
   assert.equal(result.alternatives.length, 1);
   assert.equal(JSON.stringify(result).includes("little-caesars"), false);
 });

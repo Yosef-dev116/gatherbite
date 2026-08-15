@@ -1,13 +1,66 @@
 import type { PizzaPreference } from "../types";
+import type { DominosCatalog } from "../restaurants/dominosCatalog";
 import type {
   CandidateJourney,
   EvidenceCheck,
+  OrganizerPizzaDisplayLine,
   VerifiedDominosOption,
 } from "./contracts";
 
 export interface RankedDominosOptions {
   recommended: VerifiedDominosOption | null;
   alternatives: VerifiedDominosOption[];
+}
+
+export interface DominosOptionPresentationSource {
+  storeAddress: string | null;
+  catalog: DominosCatalog;
+}
+
+function exactName(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function unresolvedDisplayLines(journey: CandidateJourney): OrganizerPizzaDisplayLine[] {
+  return journey.candidate.pizzas.map((line) => ({
+    lineId: line.lineId,
+    quantity: line.quantity,
+    productName: null,
+    variantName: null,
+    sauceName: null,
+    cheeseName: null,
+    toppings: line.toppings.map(({ code, quantity }) => ({ code, quantity, name: null })),
+  }));
+}
+
+function catalogDisplayLines(
+  journey: CandidateJourney,
+  source: DominosOptionPresentationSource | undefined,
+): OrganizerPizzaDisplayLine[] {
+  if (!source
+    || source.catalog.storeId !== journey.candidate.storeId
+    || source.catalog.snapshotVersion !== journey.candidate.snapshotVersion) {
+    return unresolvedDisplayLines(journey);
+  }
+  return journey.candidate.pizzas.map((line) => ({
+    lineId: line.lineId,
+    quantity: line.quantity,
+    productName: exactName(source.catalog.productsByCode.get(line.productCode)?.name),
+    variantName: exactName(source.catalog.variantsByCode.get(line.variantCode)?.name),
+    sauceName: line.sauceCode === null
+      ? null
+      : exactName(source.catalog.toppingsByCode.get(line.sauceCode)?.name),
+    cheeseName: line.cheeseCode === null
+      ? null
+      : exactName(source.catalog.toppingsByCode.get(line.cheeseCode)?.name),
+    toppings: line.toppings.map(({ code, quantity }) => ({
+      code,
+      quantity,
+      name: exactName(source.catalog.toppingsByCode.get(code)?.name),
+    })),
+  }));
 }
 
 function numericFact(check: EvidenceCheck, key: string): number | null {
@@ -29,16 +82,21 @@ function waitFact(check: EvidenceCheck): { min: number; max: number } | null {
 
 function approvedOption(
   journey: CandidateJourney,
-  storeAddresses: ReadonlyMap<string, string | null>,
+  presentationSources: ReadonlyMap<string, DominosOptionPresentationSource>,
 ): VerifiedDominosOption | null {
   if (journey.outcome.status !== "DECIDED" || journey.outcome.decision.decision !== "APPROVE") return null;
   const represented = journey.outcome.evidence.preference.represented.length;
   const total = numericFact(journey.outcome.evidence.checks.budget, "totalCad");
+  const source = presentationSources.get(journey.candidate.storeId);
+  const snapshotMatches = source !== undefined
+    && source.catalog.storeId === journey.candidate.storeId
+    && source.catalog.snapshotVersion === journey.candidate.snapshotVersion;
   return {
     candidate: journey.candidate,
     decision: journey.outcome.decision,
     evidence: journey.outcome.evidence,
-    storeAddress: storeAddresses.get(journey.candidate.storeId) ?? null,
+    storeAddress: snapshotMatches && source ? source.storeAddress : null,
+    displayLines: catalogDisplayLines(journey, source),
     relevantWaitMinutes: waitFact(journey.outcome.evidence.checks.availability),
     recommendationReason: `${represented} preference${represented === 1 ? "" : "s"} represented${total === null ? "" : ` with a verified $${total.toFixed(2)} total`}.`,
   };
@@ -69,10 +127,10 @@ function stableId(option: VerifiedDominosOption): string {
 export function rankApprovedDominosOptions(
   journeys: readonly CandidateJourney[],
   requestedPreferences?: readonly PizzaPreference[],
-  storeAddresses: ReadonlyMap<string, string | null> = new Map(),
+  presentationSources: ReadonlyMap<string, DominosOptionPresentationSource> = new Map(),
 ): RankedDominosOptions {
   const approved = journeys.flatMap((journey) => {
-    const option = approvedOption(journey, storeAddresses);
+    const option = approvedOption(journey, presentationSources);
     return option ? [option] : [];
   });
 
