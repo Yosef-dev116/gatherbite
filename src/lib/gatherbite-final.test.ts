@@ -12,6 +12,7 @@ import "./restaurants/dominosCapacity.test";
 import "./restaurants/dominosPreferences.test";
 import "./restaurants/dominosEvidence.test";
 import "./agents/verifierGuard.test";
+import "./agents/verifierEval.test";
 import "./agents/dominosVerifier.test";
 import "./gatherbite/agentLoop.test";
 import "./agents/dominosPlanner.test";
