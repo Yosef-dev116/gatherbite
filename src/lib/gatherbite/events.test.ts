@@ -10,10 +10,10 @@ import {
 
 test("split NDJSON chunks reassemble", () => {
   const parser = createNdjsonParser();
-  assert.deepEqual(parser.push('{"type":"stage"'), []);
+  assert.deepEqual(parser.push('{"type":"stage","stage":"observing","message":"Watching"'), []);
   const events = parser.push('}\n');
   assert.equal(events.length, 1);
-  assert.deepEqual(events[0], { type: "stage" });
+  assert.deepEqual(events[0], { type: "stage", stage: "observing", message: "Watching" });
 });
 
 test("NDJSON parser preserves multiple complete lines and trailing data", () => {
@@ -39,6 +39,28 @@ test("event collector emits only public event values", () => {
 test("encoding is one NDJSON line", () => {
   const event = { type: "stage", stage: "observing", message: "Observing" } as const;
   assert.equal(new TextDecoder().decode(encodeNdjsonEvent(event)), `${JSON.stringify(event)}\n`);
+});
+
+test("parser rejects malformed and extra-field records without leaking parser details", () => {
+  const parser = createNdjsonParser();
+  assert.throws(
+    () => parser.push('{"type":"stage","stage":"observing","message":"private address 1 Main St","private":"secret"}\n'),
+    { message: "Invalid public GatherBite event." },
+  );
+  assert.throws(
+    () => parser.push('{"type":"unknown","prompt":"private"}\n'),
+    { message: "Invalid public GatherBite event." },
+  );
+});
+
+test("parser preserves a UTF-8 character split across byte chunks", () => {
+  const encoded = new TextEncoder().encode('{"type":"stage","stage":"observing","message":"Café"}\n');
+  const parser = createNdjsonParser();
+  const splitAt = encoded.indexOf(0xc3) + 1;
+  assert.deepEqual(parser.push(encoded.slice(0, splitAt)), []);
+  assert.deepEqual(parser.push(encoded.slice(splitAt)), [
+    { type: "stage", stage: "observing", message: "Café" },
+  ]);
 });
 
 test("evaluation errors are generic and do not leak thrown data", () => {

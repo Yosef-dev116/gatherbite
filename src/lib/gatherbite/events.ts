@@ -1,4 +1,5 @@
-import type { PublicGatherBiteEvent } from "./contracts";
+import { GatherBiteEvaluationSchema, type PublicGatherBiteEvent } from "./contracts";
+import { z } from "zod";
 
 /** A sink for the intentionally small, public evaluation event contract. */
 export type EventSink = (event: PublicGatherBiteEvent) => void;
@@ -37,6 +38,32 @@ export interface NdjsonParser {
   finish(): PublicGatherBiteEvent[];
 }
 
+// The shared contract intentionally uses regular Zod objects for ergonomic
+// server-side parsing. Stream input is a trust boundary, so the parser uses
+// strict public variants and rejects extra keys instead of silently stripping
+// them. The complete result still delegates its known shape to the shared
+// recursive schema.
+const StrictPublicGatherBiteEventSchema: z.ZodType<PublicGatherBiteEvent> = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("stage"),
+    stage: z.enum(["observing", "planning", "verifying", "adapting", "comparing"]),
+    message: z.string(),
+  }).strict(),
+  z.object({
+    type: z.literal("candidate"),
+    candidateId: z.string().min(1),
+    summary: z.string(),
+  }).strict(),
+  z.object({
+    type: z.literal("decision"),
+    candidateId: z.string().min(1),
+    decision: z.enum(["APPROVE", "REJECT"]),
+    reason: z.string(),
+  }).strict(),
+  z.object({ type: z.literal("complete"), result: GatherBiteEvaluationSchema }).strict(),
+  z.object({ type: z.literal("error"), message: z.string() }).strict(),
+]);
+
 /**
  * Incrementally parses newline-delimited public events. A chunk may end in
  * the middle of a JSON record, so the incomplete suffix is retained until the
@@ -44,35 +71,49 @@ export interface NdjsonParser {
  */
 export function createNdjsonParser(): NdjsonParser {
   let pending = "";
+  const decoder = new TextDecoder();
+
+  const parseLine = (line: string): PublicGatherBiteEvent | null => {
+    const trimmed = line.endsWith("\r") ? line.slice(0, -1) : line;
+    if (trimmed.trim() === "") return null;
+
+    let value: unknown;
+    try {
+      value = JSON.parse(trimmed);
+    } catch {
+      throw new Error("Invalid public GatherBite event.");
+    }
+    const parsed = StrictPublicGatherBiteEventSchema.safeParse(value);
+    if (!parsed.success) throw new Error("Invalid public GatherBite event.");
+    return parsed.data;
+  };
 
   const parseCompleteLines = (): PublicGatherBiteEvent[] => {
     const lines = pending.split("\n");
     pending = lines.pop() ?? "";
     const events: PublicGatherBiteEvent[] = [];
     for (const line of lines) {
-      const trimmed = line.endsWith("\r") ? line.slice(0, -1) : line;
-      if (trimmed.trim() === "") continue;
-      // The stream endpoint emits this same public contract. Keeping parsing
-      // separate from request handling prevents arbitrary request objects from
-      // being serialized by this helper.
-      events.push(JSON.parse(trimmed) as PublicGatherBiteEvent);
+      const event = parseLine(line);
+      if (event) events.push(event);
     }
     return events;
   };
 
   return {
     push(chunk) {
-      pending += typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk, { stream: true });
+      pending += typeof chunk === "string" ? chunk : decoder.decode(chunk, { stream: true });
       return parseCompleteLines();
     },
     finish() {
+      pending += decoder.decode();
       if (pending.trim() === "") {
         pending = "";
         return [];
       }
       const finalLine = pending;
       pending = "";
-      return [JSON.parse(finalLine) as PublicGatherBiteEvent];
+      const event = parseLine(finalLine);
+      return event ? [event] : [];
     },
   };
 }

@@ -18,17 +18,38 @@ function safeDuration(value: number): number {
   return Number.isFinite(value) && value >= 0 ? value : 0;
 }
 
+const FIXED_DESCRIPTIONS: Record<string, string> = {
+  planner: "Planner",
+  verifier: "Verification",
+  evidence: "Evidence checks",
+  ranking: "Option ranking",
+  total: "GatherBite evaluation",
+  observation: "Live observation",
+  dominos: "Domino's live data",
+  "dominos-fetch": "Domino's live data",
+  comparison: "Deterministic comparison",
+  normalize: "Result normalization",
+  cart: "Cart preparation",
+  groq: "Groq model",
+  little_caesars: "Little Caesars evaluation",
+};
+
 function safeName(value: string): string | null {
   if (!/^[a-z][a-z0-9_-]{0,63}$/.test(value)) return null;
-  return value;
+  if (FIXED_DESCRIPTIONS[value]) return value;
+  if (/^(?:dom|groq|evidence|verifier|planner|cart)_[a-z0-9_-]{1,58}$/.test(value)) return value;
+  return null;
 }
 
-function safeDescription(value: string): string {
-  // Server-Timing descriptions are deliberately plain text and bounded. This
-  // prevents request-shaped data (addresses, headers, prompts, etc.) from
-  // entering response headers through a timing callback.
-  const normalized = value.replace(/[^a-zA-Z0-9 .'’:_-]/g, "").slice(0, 80);
-  return normalized || "GatherBite stage";
+function safeDescription(name: string): string {
+  if (FIXED_DESCRIPTIONS[name]) return FIXED_DESCRIPTIONS[name];
+  if (name.startsWith("dom_")) return FIXED_DESCRIPTIONS.dominos;
+  if (name.startsWith("groq_")) return FIXED_DESCRIPTIONS.groq;
+  if (name.startsWith("evidence_")) return FIXED_DESCRIPTIONS.evidence;
+  if (name.startsWith("verifier_")) return FIXED_DESCRIPTIONS.verifier;
+  if (name.startsWith("planner_")) return FIXED_DESCRIPTIONS.planner;
+  if (name.startsWith("cart_")) return FIXED_DESCRIPTIONS.cart;
+  return "GatherBite stage";
 }
 
 function escapeHeader(value: string): string {
@@ -45,7 +66,7 @@ export function createTimingCollector(): TimingCollector {
       collected.push({
         name,
         durationMs: safeDuration(entry.durationMs),
-        description: safeDescription(entry.description),
+        description: safeDescription(name),
       });
     },
     entries() {
