@@ -2,3 +2,5 @@
 // grows. Importing registers each node:test suite without hiding it from
 // the normal test runner.
 import "./gatherbite/contracts.test";
+import "./gatherbite/events.test";
+import "./gatherbite/timing.test";
