@@ -20,3 +20,4 @@ import "./gatherbite/normalize.test";
 import "./gatherbite/retry.test";
 import "./gatherbite/orchestrator.test";
 import "../app/api/gatherbite/route.test";
+import "./gatherbite/stream.test";

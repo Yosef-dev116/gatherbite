@@ -8,6 +8,12 @@ import { z } from "zod";
 /** A sink for the intentionally small, public evaluation event contract. */
 export type EventSink = (event: PublicGatherBiteEvent) => void;
 
+export function isCompleteEvaluationEvent(
+  event: PublicGatherBiteEvent,
+): event is Extract<PublicGatherBiteEvent, { type: "complete" }> {
+  return event.type === "complete";
+}
+
 export interface EventCollector {
   emit: EventSink;
   sink: EventSink;

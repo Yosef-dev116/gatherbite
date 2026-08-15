@@ -196,3 +196,28 @@ test("normal no-candidate completion aborts eager observation work that Planner 
   }));
   assert.equal(observedAbort, true);
 });
+
+test("an external request abort reaches observation and Planner/model work without replacing the internal deadline", async () => {
+  const requestController = new AbortController();
+  let observedAbort = false;
+  let plannerAbort = false;
+  const resultPromise = evaluateGatherBite(input, dependencies({
+    deadlineMs: 2_000,
+    observeStores: async (_ids, _timing, signal) => new Promise((resolve) => {
+      signal?.addEventListener("abort", () => { observedAbort = true; resolve([]); }, { once: true });
+    }),
+    runPlanner: async (_request, deps) => new Promise((resolve) => {
+      deps.abortSignal?.addEventListener("abort", () => {
+        plannerAbort = true;
+        resolve({ journeys: [], verificationAttempts: 0, terminal: true });
+      }, { once: true });
+    }),
+  }), undefined, requestController.signal);
+
+  requestController.abort();
+  const result = await resultPromise;
+  assert.equal(observedAbort, true);
+  assert.equal(plannerAbort, true);
+  assert.equal(result.recommended, null);
+  assert.equal(result.events.some((event) => event.type === "error"), true);
+});

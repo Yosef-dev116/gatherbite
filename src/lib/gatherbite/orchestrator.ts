@@ -180,6 +180,7 @@ export async function evaluateGatherBite(
   input: GatherBiteInput,
   deps: GatherBiteDependencies,
   onEvent?: EventSink,
+  externalSignal?: AbortSignal,
 ): Promise<GatherBiteEvaluation> {
   const totalStartedAt = deps.now();
   const events = createEventCollector();
@@ -190,11 +191,17 @@ export async function evaluateGatherBite(
   emit({ type: "stage", stage: "observing", message: "Checking live Domino's options." });
 
   const controller = new AbortController();
-  let rejectDeadline!: (reason: Error) => void;
-  const deadline = new Promise<never>((_resolve, reject) => { rejectDeadline = reject; });
+  let rejectCancellation!: (reason: Error) => void;
+  const cancellation = new Promise<never>((_resolve, reject) => { rejectCancellation = reject; });
+  const abortForRequest = () => {
+    if (!controller.signal.aborted) controller.abort();
+    rejectCancellation(Object.assign(new Error("GatherBite evaluation was cancelled."), { name: "AbortError" }));
+  };
+  if (externalSignal?.aborted) abortForRequest();
+  else externalSignal?.addEventListener("abort", abortForRequest, { once: true });
   const timeout = setTimeout(() => {
-    controller.abort();
-    rejectDeadline(Object.assign(new Error("GatherBite evaluation deadline exceeded."), { name: "AbortError" }));
+    if (!controller.signal.aborted) controller.abort();
+    rejectCancellation(Object.assign(new Error("GatherBite evaluation deadline exceeded."), { name: "AbortError" }));
   }, deps.deadlineMs);
 
   const observationStartedAt = deps.now();
@@ -213,13 +220,14 @@ export async function evaluateGatherBite(
       abortSignal: controller.signal,
     });
     void plannerPromise.catch(() => undefined);
-    planner = await Promise.race([plannerPromise, deadline]);
+    planner = await Promise.race([plannerPromise, cancellation]);
   } catch (error) {
     if (!controller.signal.aborted) controller.abort();
     emit(publicEvaluationError(error));
   } finally {
     if (!controller.signal.aborted) controller.abort();
     clearTimeout(timeout);
+    externalSignal?.removeEventListener("abort", abortForRequest);
   }
 
   emit({ type: "stage", stage: "comparing", message: "Comparing verified Domino's options." });
