@@ -36,9 +36,7 @@ const FIXED_DESCRIPTIONS: Record<string, string> = {
 
 function safeName(value: string): string | null {
   if (!/^[a-z][a-z0-9_-]{0,63}$/.test(value)) return null;
-  if (FIXED_DESCRIPTIONS[value]) return value;
-  if (/^(?:dom|groq|evidence|verifier|planner|cart)_[a-z0-9_-]{1,58}$/.test(value)) return value;
-  return null;
+  return Object.prototype.hasOwnProperty.call(FIXED_DESCRIPTIONS, value) ? value : null;
 }
 
 function safeDescription(name: string): string {

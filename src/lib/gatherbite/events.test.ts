@@ -53,6 +53,29 @@ test("parser rejects malformed and extra-field records without leaking parser de
   );
 });
 
+test("complete events reject unknown fields nested in the public result", () => {
+  const parser = createNdjsonParser();
+  const event = {
+    type: "complete",
+    result: {
+      recommended: null,
+      alternatives: [],
+      journeys: [],
+      events: [{
+        type: "stage",
+        stage: "observing",
+        message: "Watching",
+        privatePrompt: "do not serialize",
+      }],
+      noViableReason: null,
+    },
+  };
+  assert.throws(
+    () => parser.push(`${JSON.stringify(event)}\n`),
+    { message: "Invalid public GatherBite event." },
+  );
+});
+
 test("parser preserves a UTF-8 character split across byte chunks", () => {
   const encoded = new TextEncoder().encode('{"type":"stage","stage":"observing","message":"Café"}\n');
   const parser = createNdjsonParser();

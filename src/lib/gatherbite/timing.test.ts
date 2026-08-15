@@ -26,3 +26,11 @@ test("arbitrary timing descriptions cannot enter Server-Timing", () => {
   assert.equal(timing.serverTiming().includes("123 Main Street"), false);
   assert.match(timing.serverTiming(), /desc="Planner"/);
 });
+
+test("request-derived metric names cannot enter Server-Timing", () => {
+  const timing = createTimingCollector();
+  timing.record({ name: "planner_123-main-street", durationMs: 8, description: "Planner" });
+  timing.record({ name: "dom_10950_menu", durationMs: 9, description: "Domino's" });
+  assert.equal(timing.entries().length, 0);
+  assert.equal(timing.serverTiming(), "");
+});

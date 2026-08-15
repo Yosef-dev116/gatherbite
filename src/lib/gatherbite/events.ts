@@ -1,4 +1,8 @@
-import { GatherBiteEvaluationSchema, type PublicGatherBiteEvent } from "./contracts";
+import {
+  GatherBiteEvaluationSchema,
+  PublicGatherBiteEventSchema,
+  type PublicGatherBiteEvent,
+} from "./contracts";
 import { z } from "zod";
 
 /** A sink for the intentionally small, public evaluation event contract. */
@@ -64,6 +68,21 @@ const StrictPublicGatherBiteEventSchema: z.ZodType<PublicGatherBiteEvent> = z.di
   z.object({ type: z.literal("error"), message: z.string() }).strict(),
 ]);
 
+function hasUnknownKeys(input: unknown, parsed: unknown): boolean {
+  if (Array.isArray(input)) {
+    if (!Array.isArray(parsed) || input.length !== parsed.length) return true;
+    return input.some((value, index) => hasUnknownKeys(value, parsed[index]));
+  }
+  if (input === null || typeof input !== "object") return false;
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return true;
+
+  const parsedRecord = parsed as Record<string, unknown>;
+  return Object.entries(input as Record<string, unknown>).some(([key, value]) => {
+    if (!Object.prototype.hasOwnProperty.call(parsedRecord, key)) return true;
+    return hasUnknownKeys(value, parsedRecord[key]);
+  });
+}
+
 /**
  * Incrementally parses newline-delimited public events. A chunk may end in
  * the middle of a JSON record, so the incomplete suffix is retained until the
@@ -85,6 +104,17 @@ export function createNdjsonParser(): NdjsonParser {
     }
     const parsed = StrictPublicGatherBiteEventSchema.safeParse(value);
     if (!parsed.success) throw new Error("Invalid public GatherBite event.");
+
+    if (parsed.data.type === "complete") {
+      // The shared recursive schema knows the complete public result shape,
+      // but regular Zod objects strip unknown keys. Compare its parsed tree
+      // with the source tree so nested private/unknown fields are rejected at
+      // this transport boundary instead of silently disappearing.
+      const publicResult = PublicGatherBiteEventSchema.safeParse(value);
+      if (!publicResult.success || hasUnknownKeys(value, publicResult.data)) {
+        throw new Error("Invalid public GatherBite event.");
+      }
+    }
     return parsed.data;
   };
 
