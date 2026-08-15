@@ -26,6 +26,14 @@ import {
   type PrepareCartDependencies,
 } from "./prepareCart";
 
+// Genuinely distinct from FETCHED_AT/POST_FETCHED_AT on purpose: this is when
+// the organizer's candidate was originally bound, at evaluation time — well
+// before either live-data refresh this file's fixtures simulate. Every
+// default-candidate test below therefore exercises the realistic case where
+// the client's original snapshotVersion can never match a freshly refreshed
+// observation's timestamp, so prepareSelectedDominosCart must rebind before
+// verifying rather than failing closed on every real request.
+const EVALUATION_FETCHED_AT = "2026-08-15T11:00:00.000Z";
 const FETCHED_AT = "2026-08-15T12:00:00.000Z";
 const POST_FETCHED_AT = "2026-08-15T12:05:00.000Z";
 
@@ -75,6 +83,31 @@ function snapshotWithUnknownSlices(fetchedAt: string): DominosStoreSnapshot {
   return {
     ...base,
     variants: [{ ...base.variants![0]!, trustedSlices: null }],
+  };
+}
+
+/** A refreshed snapshot whose menu no longer offers the product/variant the default candidate references — simulates the menu changing since evaluation. */
+function snapshotWithDifferentMenu(fetchedAt: string): DominosStoreSnapshot {
+  const base = snapshot(fetchedAt);
+  return {
+    ...base,
+    products: [{
+      id: "OTHER_PRODUCT",
+      name: "Different Pizza",
+      category: "Pizza",
+      toppings: [],
+      defaultToppingCodes: [],
+      variantCodes: ["OTHER_VARIANT"],
+      priceInfoIfAvailable: 12,
+    }],
+    variants: [{
+      code: "OTHER_VARIANT",
+      productCode: "OTHER_PRODUCT",
+      sizeCode: "10",
+      crustCode: "THIN",
+      priceCad: 12,
+      trustedSlices: 6,
+    }],
   };
 }
 
@@ -137,7 +170,10 @@ function candidate(overrides: Partial<DominosCandidate> = {}): DominosCandidate 
   return {
     candidateId: "cand-1",
     candidateVersion: 1,
-    snapshotVersion: `10950:${FETCHED_AT}`,
+    // Bound to the *evaluation-time* snapshot, not the refresh-time one
+    // (FETCHED_AT) that buildDeps' default preObservation uses below —
+    // realistic, and the exact case Important Finding #1 covers.
+    snapshotVersion: `10950:${EVALUATION_FETCHED_AT}`,
     storeId: "10950",
     serviceMethod: "carryout",
     dealCodes: ["3021"],
@@ -359,6 +395,51 @@ test("full success: fresh pre-verify APPROVE, matching actual cart, fresh post-v
   assert.ok(events.some((event) => event.type === "cart-stage"));
 });
 
+test("pre-verify rebinds a candidate bound to a stale evaluation-time snapshot to the refreshed observation, and still reaches a successful deps.verifyCandidate call (Important Finding #1)", async () => {
+  const expected = candidate(); // snapshotVersion bound to EVALUATION_FETCHED_AT
+  assert.equal(expected.snapshotVersion, `10950:${EVALUATION_FETCHED_AT}`);
+  assert.notEqual(EVALUATION_FETCHED_AT, FETCHED_AT, "the fixture must exercise genuinely different timestamps");
+
+  let receivedPreVerifyCandidate: DominosCandidate | null = null;
+  const { deps, calls } = buildDeps({
+    executor: executorObserving(matchingActualCart(), "https://www.dominos.ca/en/pages/order/?route=1&handoff=abc"),
+    preVerifyOutcome: (verifyInput) => {
+      receivedPreVerifyCandidate = verifyInput!.candidate;
+      return approveOutcome(verifyInput!.candidate);
+    },
+  });
+
+  const result = await prepareSelectedDominosCart(expected, organizerInput(), deps);
+
+  // The Verifier really was reached, with the candidate rebound to the
+  // freshly refreshed observation's snapshotVersion — never left bound to
+  // the stale evaluation-time one, and never silently skipped.
+  assert.equal(calls.verifyCandidate, 1);
+  assert.ok(receivedPreVerifyCandidate);
+  assert.equal((receivedPreVerifyCandidate as DominosCandidate).snapshotVersion, `10950:${FETCHED_AT}`);
+  // Rebinding never touches the approved configuration content.
+  assert.deepEqual((receivedPreVerifyCandidate as DominosCandidate).pizzas, expected.pizzas);
+  assert.equal((receivedPreVerifyCandidate as DominosCandidate).storeId, expected.storeId);
+
+  assert.equal(result.status, "PREPARED_AND_VERIFIED");
+});
+
+test("a candidate's referenced product/variant no longer in the refreshed catalog falls back honestly instead of crashing or reaching the Verifier (Important Finding #1)", async () => {
+  const expected = candidate();
+  const { deps, calls } = buildDeps({
+    preObservation: observationFrom(snapshotWithDifferentMenu(FETCHED_AT)),
+    executor: fakeExecutor(async () => { throw new Error("must not run"); }),
+  });
+
+  const result = await prepareSelectedDominosCart(expected, organizerInput(), deps);
+
+  assert.notEqual(result.status, "PREPARED_AND_VERIFIED");
+  assert.equal(calls.verifyCandidate, 0, "a menu change must be caught before ever calling the Verifier");
+  assert.equal(calls.executorPrepare, 0);
+  assert.deepEqual(result.fallback, buildGuidedHandoff(expected));
+  assert.equal(typeof result.reason, "string");
+});
+
 for (const [label, tamper] of [
   ["quantity", (c: DominosCandidate) => ({ ...c, pizzas: [{ ...c.pizzas[0]!, quantity: 99 }] })],
   ["topping", (c: DominosCandidate) => ({ ...c, pizzas: [{ ...c.pizzas[0]!, toppings: [{ code: "H", quantity: 1 }] }] })],
@@ -491,6 +572,33 @@ test("a non-success executor result (e.g. CAPTCHA) is propagated as-is and never
 
   assert.equal(result.status, "NEEDS_HUMAN_CAPTCHA");
   assert.equal(calls.verifyActualCart, 0);
+});
+
+test("an executor that itself claims PREPARED_AND_VERIFIED is never forwarded as-is (Important Finding #2)", async () => {
+  const expected = candidate();
+  const rogueResult: CartPreparationResult = {
+    status: "PREPARED_AND_VERIFIED",
+    actualCart: matchingActualCart(),
+    comparison: { matches: true, mismatches: [] },
+    handoffUrl: "https://www.dominos.ca/en/pages/order/?route=1&handoff=rogue",
+    fallback: buildGuidedHandoff(expected),
+    reason: null,
+  };
+  const { deps, calls } = buildDeps({
+    executor: fakeExecutor(async () => rogueResult),
+  });
+
+  const result = await prepareSelectedDominosCart(expected, organizerInput(), deps);
+
+  // prepareSelectedDominosCart is the sole authority for PREPARED_AND_VERIFIED
+  // — reachable in this file only after its own fresh post-execution
+  // Verifier call, never by forwarding whatever the executor itself claims.
+  assert.notEqual(result, rogueResult);
+  assert.equal(calls.verifyActualCart, 0, "a rogue PREPARED_AND_VERIFIED claim must never reach post-execution verification either");
+  assert.deepEqual(result.fallback, buildGuidedHandoff(expected));
+  if (result.status === "PREPARED_AND_VERIFIED") {
+    assert.fail("an executor's own PREPARED_AND_VERIFIED claim must never be trusted without this file's own fresh verification");
+  }
 });
 
 test("a failed live-data refresh before verification blocks without ever calling the Verifier or executor", async () => {

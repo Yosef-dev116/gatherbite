@@ -127,6 +127,69 @@ function buildObservedCandidate(
 }
 
 /**
+ * Rebinds a client-supplied candidate's `snapshotVersion` to a freshly
+ * refreshed observation before pre-execution verification.
+ * `candidateMatchesObservation` (inside `verifyObservedDominosCandidate`)
+ * requires the candidate's `snapshotVersion` to exactly equal
+ * `${storeId}:${fetchedAt}` for the observation it is checked against — and
+ * since `fetchedAt` is a fresh timestamp on every observation, the
+ * organizer's *original*, evaluation-time binding can never match a newly
+ * refreshed one. Without this rebinding, every real request would fail
+ * closed before the Verifier model is ever invoked. The candidate's actual
+ * configuration content (pizzas, serviceMethod, dealCodes — everything the
+ * client actually claims) is returned completely unchanged; only
+ * `snapshotVersion` is re-anchored to the refreshed observation. This does
+ * not weaken tamper resistance: `verifyCandidate`'s own evidence collection
+ * (menu integrity, dietary, capacity, budget, availability, serviceability)
+ * still runs against this exact unchanged configuration, now checked
+ * against genuinely live data instead of failing closed on a timestamp
+ * mismatch. Returns null — a legitimate fallback, not a crash — when the
+ * candidate's store is no longer in the refreshed observation, or when any
+ * product/variant/sauce/cheese/topping/deal code it references no longer
+ * resolves in the refreshed catalog (the menu changed since evaluation).
+ */
+function rebindCandidateToObservation(
+  candidate: DominosCandidate,
+  observation: DominosObservationContext,
+): DominosCandidate | null {
+  const catalog = observation.catalogs.get(candidate.storeId);
+  const snapshot = observation.snapshots.find((entry) => entry.storeId === candidate.storeId);
+  if (!catalog || !snapshot) return null;
+
+  for (const pizza of candidate.pizzas) {
+    if (!catalog.productsByCode.has(pizza.productCode)) return null;
+    if (!catalog.variantsByCode.has(pizza.variantCode)) return null;
+    if (pizza.sauceCode !== null && !catalog.toppingsByCode.has(pizza.sauceCode)) return null;
+    if (pizza.cheeseCode !== null && !catalog.toppingsByCode.has(pizza.cheeseCode)) return null;
+    for (const topping of pizza.toppings) {
+      if (!catalog.toppingsByCode.has(topping.code)) return null;
+    }
+  }
+  for (const dealCode of candidate.dealCodes) {
+    if (!catalog.dealsByCode.has(dealCode)) return null;
+  }
+
+  const rebound: DominosCandidate = {
+    ...candidate,
+    snapshotVersion: `${snapshot.storeId}:${snapshot.fetchedAt}`,
+  };
+
+  return DominosCandidateSchema.safeParse(rebound).success ? rebound : null;
+}
+
+/** Executor statuses `prepareSelectedDominosCart` accepts from `deps.executor.prepare`. `PREPARED_AND_VERIFIED` is deliberately excluded: only this function may ever declare that status, and it does so only after its own fresh post-execution Verifier pass — never by forwarding whatever an executor claims. */
+const EXECUTOR_RESULT_STATUSES: ReadonlySet<CartPreparationStatus> = new Set([
+  "PREPARED_AND_OBSERVED",
+  "NEEDS_HUMAN_CAPTCHA",
+  "NEEDS_HUMAN_LOGIN",
+  "CART_MISMATCH",
+  "SESSION_NOT_TRANSFERABLE",
+  "AUTOMATION_UNAVAILABLE",
+  "TIMED_OUT",
+  "FALLBACK_READY",
+]);
+
+/**
  * Re-verifies an untrusted, client-returned candidate against fresh live
  * evidence, executes only after a fresh independent APPROVE, strictly
  * compares the actual official cart the executor observed, and — only on a
@@ -184,10 +247,24 @@ export async function prepareSelectedDominosCart(
     return blocked("AUTOMATION_UNAVAILABLE", "Live Domino's data could not be refreshed for this selection.");
   }
 
+  // The candidate arrived bound to an evaluation-time snapshot; the
+  // observation above is a brand-new fetch with its own fresh timestamp, so
+  // the two can never share a snapshotVersion. Rebind the (content-unchanged)
+  // candidate to this refreshed observation before verifying — otherwise
+  // candidateMatchesObservation fails closed on every real request and
+  // deps.verifyCandidate is never actually reached.
+  const reboundCandidate = rebindCandidateToObservation(expectedCandidate, preObservation);
+  if (!reboundCandidate) {
+    return blocked(
+      "FALLBACK_READY",
+      "The selected store or one of its menu items is no longer available in the live Domino's data.",
+    );
+  }
+
   emit("cart-stage", "Independent verification is checking your selection.");
   const preVerify = await verifyObservedDominosCandidate({
     input,
-    candidate: expectedCandidate,
+    candidate: reboundCandidate,
     observation: preObservation,
     verifierModel: VERIFIER_MODEL,
     verifyCandidate: deps.verifyCandidate,
@@ -200,8 +277,20 @@ export async function prepareSelectedDominosCart(
     return blocked("FALLBACK_READY", reason);
   }
 
+  // Downstream (execution, comparison, observed-cart conversion) continues
+  // to use the original expectedCandidate, not reboundCandidate: rebinding
+  // only ever changes snapshotVersion bookkeeping, never the approved
+  // configuration content, so both refer to the identical approved order.
   emit("cart-stage", "Building the official Domino's cart.");
   const executionResult = await deps.executor.prepare({ candidate: expectedCandidate, organizerInput: input });
+
+  if (!EXECUTOR_RESULT_STATUSES.has(executionResult.status)) {
+    // Defense in depth: only this function may ever declare
+    // PREPARED_AND_VERIFIED. An executor that claims it (or any other status
+    // this function doesn't expect) is treated as a contract violation, not
+    // forwarded to the caller.
+    return blocked("AUTOMATION_UNAVAILABLE", "The cart executor returned an unexpected status.");
+  }
 
   if (executionResult.status !== "PREPARED_AND_OBSERVED" || !executionResult.actualCart) {
     emit("cart-blocked", executionResult.reason ?? "The official cart could not be prepared.");
