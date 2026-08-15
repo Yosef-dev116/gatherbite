@@ -10,3 +10,5 @@ import "./restaurants/dominosServiceability.test";
 import "./restaurants/dominosCapacity.test";
 import "./restaurants/dominosPreferences.test";
 import "./restaurants/dominosEvidence.test";
+import "./agents/verifierGuard.test";
+import "./agents/dominosVerifier.test";
