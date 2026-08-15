@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { DominosCandidate, CandidatePizza } from "../gatherbite/contracts";
+import { DietaryGroupsSchema, type DominosCandidate, type CandidatePizza } from "../gatherbite/contracts";
 import type { DietaryGroupInput } from "../types";
 import { allocateProtectedSlices, checkTotalPizzaCapacity } from "./dominosCapacity";
 
@@ -158,6 +158,32 @@ test("allocateProtectedSlices keeps distinct group ids distinct when one id pref
 
   assert.equal(allocation.groups.team.allocatedSlices, 3);
   assert.equal(allocation.groups["team:late"].allocatedSlices, 3);
+});
+
+test("allocateProtectedSlices completes valid schema-scale demand with deterministic non-shared totals", () => {
+  const groups: DietaryGroupInput[] = Array.from({ length: 10 }, (_, index) => ({
+    id: `group-${index}`,
+    people: 200,
+    restrictions: ["vegetarian"],
+  }));
+  assert.equal(DietaryGroupsSchema.safeParse(groups).success, true);
+  const order = candidate(Array.from({ length: 10 }, (_, index) => ({
+    ...pizza(`line-${index}`, 8, groups.map((group) => group.id)),
+    quantity: 75,
+  })));
+
+  const allocation = allocateProtectedSlices(order, groups, () => true);
+
+  assert.equal(allocation.allocatedSliceIds.size, 6000);
+  assert.equal(new Set(allocation.allocatedSliceIds).size, 6000);
+  assert.deepEqual(
+    groups.map((group) => allocation.groups[group.id].allocatedSlices),
+    Array.from({ length: 10 }, () => 600),
+  );
+  assert.equal(
+    groups.reduce((sum, group) => sum + allocation.groups[group.id].allocatedSlices, 0),
+    6000,
+  );
 });
 
 test("checkTotalPizzaCapacity counts only trusted pizza slices and retains the full attendee requirement", () => {

@@ -125,6 +125,21 @@ test("configureGeneralPreferences records an unavailable intent without invalida
   assert.deepEqual(result.candidate, original);
 });
 
+test("configureGeneralPreferences distinguishes an avoided single-topping preference from an unavailable one", () => {
+  for (const [preference, note, label] of [
+    ["pepperoni", "no pepperoni", "Pepperoni"],
+    ["cheese", "no cheese", "Cheese"],
+  ] as const) {
+    const result = configureGeneralPreferences(candidate([pizza("general", "general")]), catalog(), [preference], [note]);
+
+    assert.deepEqual(result.evidence.represented, []);
+    assert.deepEqual(result.evidence.unmet, [{
+      preference,
+      reason: `${label} was omitted because it matches the organizer's avoidance note: ${note}.`,
+    }]);
+  }
+});
+
 test("configureGeneralPreferences records an avoidance-conflicting intent as unmet", () => {
   const original = candidate([pizza("general", "general")]);
 

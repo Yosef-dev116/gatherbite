@@ -73,49 +73,90 @@ export function allocateProtectedSlices(
     };
   }
 
-  const availableSlices = candidate.pizzas
+  const protectedLines = candidate.pizzas
     .filter((pizza) => pizza.purpose === "dietary-protected")
-    .flatMap(stableSlices);
+    .map((pizza) => ({ pizza, slices: stableSlices(pizza) }));
   const allocatedSliceIds = new Set<string>();
-  const slots = groups.flatMap((group) => Array.from(
-    { length: group.people * SLICES_PER_PERSON },
-    (_, index) => ({ key: `${group.id}:${index}`, group }),
-  ));
-  const slotByKey = new Map(slots.map((slot) => [slot.key, slot]));
-  const assignedSliceToSlot = new Map<string, string>();
-
-  /**
-   * Deterministic augmenting-path matching. A later constrained group can
-   * reclaim its only compatible slice and move an earlier broad group to an
-   * alternate slice, which a greedy pass cannot do.
-   */
-  const assign = (slotKey: string, attemptedSlices: Set<string>, attemptedSlots: Set<string>): boolean => {
-    if (attemptedSlots.has(slotKey)) return false;
-    attemptedSlots.add(slotKey);
-    const slot = slotByKey.get(slotKey);
-    if (!slot) return false;
-
-    for (const slice of availableSlices) {
-      if (attemptedSlices.has(slice.id) || !isCompatible(slice.pizza, slot.group)) continue;
-      attemptedSlices.add(slice.id);
-      const previousSlot = assignedSliceToSlot.get(slice.id);
-      if (!previousSlot || assign(previousSlot, attemptedSlices, attemptedSlots)) {
-        assignedSliceToSlot.set(slice.id, slotKey);
-        return true;
-      }
-    }
-    return false;
+  type FlowEdge = { to: number; reverse: number; remaining: number; initial: number };
+  const source = 0;
+  const groupOffset = 1;
+  const lineOffset = groupOffset + groups.length;
+  const sink = lineOffset + protectedLines.length;
+  const graph: FlowEdge[][] = Array.from({ length: sink + 1 }, () => []);
+  const addEdge = (from: number, to: number, capacity: number): FlowEdge => {
+    const forward: FlowEdge = { to, reverse: graph[to]!.length, remaining: capacity, initial: capacity };
+    const reverse: FlowEdge = { to: from, reverse: graph[from]!.length, remaining: 0, initial: 0 };
+    graph[from]!.push(forward);
+    graph[to]!.push(reverse);
+    return forward;
   };
 
-  for (const slot of slots) {
-    assign(slot.key, new Set<string>(), new Set<string>());
+  for (const [groupIndex, group] of groups.entries()) {
+    addEdge(source, groupOffset + groupIndex, group.people * SLICES_PER_PERSON);
+  }
+  for (const [lineIndex, line] of protectedLines.entries()) {
+    addEdge(lineOffset + lineIndex, sink, line.slices.length);
+  }
+
+  const groupLineEdges: Array<{ groupIndex: number; lineIndex: number; edge: FlowEdge }> = [];
+  for (const [groupIndex, group] of groups.entries()) {
+    for (const [lineIndex, line] of protectedLines.entries()) {
+      if (!isCompatible(line.pizza, group) || line.slices.length === 0) continue;
+      groupLineEdges.push({
+        groupIndex,
+        lineIndex,
+        edge: addEdge(groupOffset + groupIndex, lineOffset + lineIndex, line.slices.length),
+      });
+    }
+  }
+
+  /**
+   * Edmonds-Karp over group/line capacities, not individual slices. This has
+   * bounded iterative traversal at the request schema's ten-group limit and
+   * still finds augmenting paths that reserve a constrained line for a later
+   * group.
+   */
+  while (true) {
+    const parent: Array<{ from: number; edgeIndex: number } | null> = Array.from({ length: graph.length }, () => null);
+    const visited = Array.from({ length: graph.length }, () => false);
+    const queue = [source];
+    visited[source] = true;
+    for (let cursor = 0; cursor < queue.length && !visited[sink]; cursor += 1) {
+      const from = queue[cursor]!;
+      for (const [edgeIndex, edge] of graph[from]!.entries()) {
+        if (edge.remaining <= 0 || visited[edge.to]) continue;
+        visited[edge.to] = true;
+        parent[edge.to] = { from, edgeIndex };
+        queue.push(edge.to);
+        if (edge.to === sink) break;
+      }
+    }
+    if (!visited[sink]) break;
+
+    let amount = Number.POSITIVE_INFINITY;
+    for (let node = sink; node !== source;) {
+      const step = parent[node]!;
+      amount = Math.min(amount, graph[step.from]![step.edgeIndex]!.remaining);
+      node = step.from;
+    }
+    for (let node = sink; node !== source;) {
+      const step = parent[node]!;
+      const edge = graph[step.from]![step.edgeIndex]!;
+      edge.remaining -= amount;
+      graph[edge.to]![edge.reverse]!.remaining += amount;
+      node = step.from;
+    }
   }
 
   const result: Record<string, ProtectedSliceGroupAllocation> = {};
-  const groupAllocations = groups.map((group) => {
-    const groupSliceIds = availableSlices
-      .filter((slice) => slotByKey.get(assignedSliceToSlot.get(slice.id) ?? "")?.group.id === group.id)
-      .map((slice) => slice.id);
+  const remainingSlicesByLine = protectedLines.map((line) => [...line.slices]);
+  const groupAllocations = groups.map((group, groupIndex) => {
+    const groupSliceIds: string[] = [];
+    for (const groupLine of groupLineEdges.filter((edge) => edge.groupIndex === groupIndex)) {
+      const assignedSlices = groupLine.edge.initial - groupLine.edge.remaining;
+      if (assignedSlices <= 0) continue;
+      groupSliceIds.push(...remainingSlicesByLine[groupLine.lineIndex]!.splice(0, assignedSlices).map((slice) => slice.id));
+    }
     for (const id of groupSliceIds) allocatedSliceIds.add(id);
     const allocation = {
       requiredSlices: group.people * SLICES_PER_PERSON,

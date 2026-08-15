@@ -65,12 +65,17 @@ function avoidanceWords(note: string): string[] {
 }
 
 /** Match an organizer note only to an exact live component's name/code words. */
-function isAvoided(topping: DominosToppingOption, notes: readonly string[]): boolean {
+function matchingAvoidanceNote(topping: DominosToppingOption, notes: readonly string[]): string | null {
   const componentWords = new Set([...normalizedWords(topping.name), ...normalizedWords(topping.code)]);
-  return notes.some((note) => {
+  for (const note of notes) {
     const avoided = avoidanceWords(note);
-    return avoided.length > 0 && avoided.every((word) => componentWords.has(word));
-  });
+    if (avoided.length > 0 && avoided.every((word) => componentWords.has(word))) return note.trim();
+  }
+  return null;
+}
+
+function isAvoided(topping: DominosToppingOption, notes: readonly string[]): boolean {
+  return matchingAvoidanceNote(topping, notes) !== null;
 }
 
 function availableComponents(
@@ -83,28 +88,39 @@ function availableComponents(
     .filter((topping): topping is DominosToppingOption => topping !== null && !isAvoided(topping, avoidanceNotes));
 }
 
+interface PreferenceConfiguration {
+  value: { toppings: Topping[]; cheeseCode?: string | null } | null;
+  omittedSingle: { label: string; note: string } | null;
+}
+
 function configurationFor(
   preference: PizzaPreference,
   catalog: DominosCatalog,
   avoidanceNotes: readonly string[],
-): { toppings: Topping[]; cheeseCode?: string | null } | null {
+): PreferenceConfiguration {
   if (preference === "cheese") {
     const cheese = findTopping(catalog, ["Cheese", "Mozzarella Cheese", "Cheese Blend"]);
-    return cheese && !isAvoided(cheese, avoidanceNotes) ? { toppings: [], cheeseCode: cheese.code } : null;
+    const note = cheese ? matchingAvoidanceNote(cheese, avoidanceNotes) : null;
+    return {
+      value: cheese && !note ? { toppings: [], cheeseCode: cheese.code } : null,
+      omittedSingle: note ? { label: "Cheese", note } : null,
+    };
   }
 
   if (preference === "pepperoni") {
     const pepperoni = findTopping(catalog, ["Pepperoni"]);
-    return pepperoni && !isAvoided(pepperoni, avoidanceNotes)
-      ? { toppings: [{ code: pepperoni.code, quantity: 1 }] }
-      : null;
+    const note = pepperoni ? matchingAvoidanceNote(pepperoni, avoidanceNotes) : null;
+    return {
+      value: pepperoni && !note ? { toppings: [{ code: pepperoni.code, quantity: 1 }] } : null,
+      omittedSingle: note ? { label: "Pepperoni", note } : null,
+    };
   }
 
   const components = preference === "veggie" ? VEGGIE_COMPONENTS : MEAT_COMPONENTS;
   const toppings = availableComponents(catalog, components, avoidanceNotes);
   const minimum = 2;
-  if (toppings.length < minimum) return null;
-  return { toppings: toppings.map(({ code }) => ({ code, quantity: 1 })) };
+  if (toppings.length < minimum) return { value: null, omittedSingle: null };
+  return { value: { toppings: toppings.map(({ code }) => ({ code, quantity: 1 })) }, omittedSingle: null };
 }
 
 function unavailableReason(preference: PizzaPreference, avoidanceNotes: readonly string[]): string {
@@ -179,13 +195,18 @@ export function configureGeneralPreferences(
     }
 
     const configuration = configurationFor(preference, catalog, avoidanceNotes);
-    if (!configuration) {
-      evidence.unmet.push({ preference, reason: unavailableReason(preference, avoidanceNotes) });
+    if (!configuration.value) {
+      evidence.unmet.push({
+        preference,
+        reason: configuration.omittedSingle
+          ? `${configuration.omittedSingle.label} was omitted because it matches the organizer's avoidance note: ${configuration.omittedSingle.note}.`
+          : unavailableReason(preference, avoidanceNotes),
+      });
       continue;
     }
 
-    pizza.toppings = configuration.toppings;
-    if (configuration.cheeseCode !== undefined) pizza.cheeseCode = configuration.cheeseCode;
+    pizza.toppings = configuration.value.toppings;
+    if (configuration.value.cheeseCode !== undefined) pizza.cheeseCode = configuration.value.cheeseCode;
     evidence.represented.push(preference);
   }
 
