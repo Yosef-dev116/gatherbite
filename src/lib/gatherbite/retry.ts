@@ -8,6 +8,16 @@ const TRANSIENT_CODES = new Set([
   "UND_ERR_SOCKET",
 ]);
 
+const NON_RETRYABLE_BARRIER_CODES = new Set([
+  "CAPTCHA_REQUIRED",
+  "ANTI_BOT_BLOCKED",
+  "ANTI_BOT_REQUIRED",
+  "AUTHENTICATION_REQUIRED",
+  "AUTHORIZATION_REQUIRED",
+  "LOGIN_REQUIRED",
+  "SESSION_REQUIRED",
+]);
+
 function errorRecord(error: unknown): Record<string, unknown> | null {
   return error !== null && typeof error === "object" ? error as Record<string, unknown> : null;
 }
@@ -15,8 +25,12 @@ export function isTransientGatherBiteError(error: unknown): boolean {
   const record = errorRecord(error);
   if (!record) return false;
   if (record.name === "AbortError") return false;
-  if (record.isRetryable === true) return true;
+  if (record.isRetryable === false) return false;
+  if (typeof record.code === "string" && NON_RETRYABLE_BARRIER_CODES.has(record.code)) return false;
   const status = typeof record.statusCode === "number" ? record.statusCode : record.status;
+  if (typeof status === "number" && status >= 400 && status <= 499
+    && status !== 408 && status !== 425 && status !== 429) return false;
+  if (record.isRetryable === true) return true;
   if (status === 408 || status === 425 || status === 429) return true;
   if (typeof status === "number" && status >= 500 && status <= 599) return true;
   return typeof record.code === "string" && TRANSIENT_CODES.has(record.code);

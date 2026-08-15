@@ -152,6 +152,60 @@ export function describeError(reason: unknown): string {
   return String(reason);
 }
 
+class DominosHttpError extends Error {
+  readonly statusCode: number;
+  readonly retryAfterMs: number;
+
+  constructor(statusCode: number, retryAfterMs: number) {
+    super(`HTTP ${statusCode}`);
+    this.name = "DominosHttpError";
+    this.statusCode = statusCode;
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+function retryAfterMilliseconds(value: string | null | undefined): number {
+  if (!value) return 0;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+  const date = Date.parse(value);
+  return Number.isFinite(date) ? Math.max(0, date - Date.now()) : 0;
+}
+
+function isTransientFetchError(error: unknown, callerSignal?: AbortSignal): boolean {
+  if (callerSignal?.aborted) return false;
+  if (error instanceof DominosHttpError) {
+    return error.statusCode === 408 || error.statusCode === 425 || error.statusCode === 429
+      || (error.statusCode >= 500 && error.statusCode <= 599);
+  }
+  if (error instanceof TypeError) return true;
+  if (error instanceof Error && error.name === "AbortError") return true;
+  if (error === null || typeof error !== "object") return false;
+  const code = (error as Record<string, unknown>).code;
+  return typeof code === "string" && [
+    "ECONNRESET", "ECONNREFUSED", "EAI_AGAIN", "ETIMEDOUT",
+    "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_HEADERS_TIMEOUT", "UND_ERR_SOCKET",
+  ].includes(code);
+}
+
+function waitForRetry(delayMs: number, signal?: AbortSignal): Promise<void> {
+  if (delayMs <= 0) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const aborted = () => {
+      clearTimeout(timer);
+      const error = new Error("aborted");
+      error.name = "AbortError";
+      reject(error);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", aborted);
+      resolve();
+    }, delayMs);
+    if (signal?.aborted) aborted();
+    else signal?.addEventListener("abort", aborted, { once: true });
+  });
+}
+
 async function fetchJson(
   url: string,
   storeId: string,
@@ -168,13 +222,33 @@ async function fetchJson(
   try {
     const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
+      throw new DominosHttpError(
+        res.status,
+        retryAfterMilliseconds(res.headers?.get?.("Retry-After")),
+      );
     }
     return await res.json();
   } finally {
     clearTimeout(timeout);
     signal?.removeEventListener("abort", abortFromCaller);
     onTiming?.({ storeId, stage, durationMs: performance.now() - startedAt });
+  }
+}
+
+async function fetchJsonWithOneTransientRetry(
+  url: string,
+  storeId: string,
+  stage: DominosFetchStage,
+  onTiming?: DominosTimingObserver,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  try {
+    return await fetchJson(url, storeId, stage, onTiming, signal);
+  } catch (error) {
+    if (!isTransientFetchError(error, signal)) throw error;
+    const retryAfterMs = error instanceof DominosHttpError ? error.retryAfterMs : 0;
+    await waitForRetry(retryAfterMs, signal);
+    return fetchJson(url, storeId, stage, onTiming, signal);
   }
 }
 
@@ -320,8 +394,8 @@ export async function getDominosStoreSnapshot(
   const errors: string[] = [];
 
   const [profileResult, menuResult] = await Promise.allSettled([
-    fetchJson(PROFILE_URL(storeId), storeId, "profile", onTiming, signal),
-    fetchJson(MENU_URL(storeId), storeId, "menu", onTiming, signal),
+    fetchJsonWithOneTransientRetry(PROFILE_URL(storeId), storeId, "profile", onTiming, signal),
+    fetchJsonWithOneTransientRetry(MENU_URL(storeId), storeId, "menu", onTiming, signal),
   ]);
 
   let profile: Record<string, unknown> | null = null;

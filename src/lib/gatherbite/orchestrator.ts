@@ -8,7 +8,7 @@ import {
 } from "../agents/dominosPlanner";
 import { runDominosVerifier } from "../agents/dominosVerifier";
 import { PLANNER_MODEL } from "../groq";
-import type { DominosTimingEvent } from "../restaurants/dominos";
+import type { DominosStoreSnapshot, DominosTimingEvent } from "../restaurants/dominos";
 import {
   buildDominosCatalog,
   observeSupportedDominosStores,
@@ -91,6 +91,29 @@ function emptyPlannerResult(): PlannerRunResult {
   return { journeys: [], verificationAttempts: 0, terminal: true };
 }
 
+function immutableSnapshot(snapshot: DominosStoreSnapshot): DominosStoreSnapshot {
+  const products = snapshot.products.map((product) => Object.freeze({
+    ...product,
+    toppings: product.toppings === null ? null : Object.freeze([...product.toppings]) as unknown as string[],
+    defaultToppingCodes: Object.freeze([...product.defaultToppingCodes]),
+    variantCodes: Object.freeze([...product.variantCodes]),
+  }));
+  return Object.freeze({
+    ...snapshot,
+    deliveryWaitMinutes: snapshot.deliveryWaitMinutes ? Object.freeze({ ...snapshot.deliveryWaitMinutes }) : null,
+    carryoutWaitMinutes: snapshot.carryoutWaitMinutes ? Object.freeze({ ...snapshot.carryoutWaitMinutes }) : null,
+    deals: Object.freeze(snapshot.deals.map((deal) => Object.freeze({ ...deal }))) as unknown as DominosStoreSnapshot["deals"],
+    products: Object.freeze(products) as unknown as DominosStoreSnapshot["products"],
+    variants: snapshot.variants
+      ? Object.freeze(snapshot.variants.map((variant) => Object.freeze({ ...variant }))) as unknown as NonNullable<DominosStoreSnapshot["variants"]>
+      : undefined,
+    toppingOptions: snapshot.toppingOptions
+      ? Object.freeze(snapshot.toppingOptions.map((topping) => Object.freeze({ ...topping }))) as unknown as NonNullable<DominosStoreSnapshot["toppingOptions"]>
+      : undefined,
+    errors: Object.freeze([...snapshot.errors]) as unknown as string[],
+  });
+}
+
 function createObservationPromise(
   input: GatherBiteInput,
   deps: GatherBiteDependencies,
@@ -118,11 +141,12 @@ function createObservationPromise(
   );
 
   return Promise.all([storesPromise, serviceabilityPromise]).then(([snapshots, serviceability]) => {
+    const immutableSnapshots = snapshots.map(immutableSnapshot);
     const catalogs = new ImmutableCatalogMap(
-      snapshots.map((snapshot) => [snapshot.storeId, buildDominosCatalog(snapshot)] as const),
+      immutableSnapshots.map((snapshot) => [snapshot.storeId, buildDominosCatalog(snapshot)] as const),
     );
     return Object.freeze({
-      snapshots: Object.freeze([...snapshots]),
+      snapshots: Object.freeze(immutableSnapshots),
       catalogs,
       serviceability: Object.freeze({ ...serviceability, storeIds: Object.freeze([...serviceability.storeIds]) }),
       observedAt: isoNow(deps.now),
@@ -194,6 +218,7 @@ export async function evaluateGatherBite(
     if (!controller.signal.aborted) controller.abort();
     emit(publicEvaluationError(error));
   } finally {
+    if (!controller.signal.aborted) controller.abort();
     clearTimeout(timeout);
   }
 

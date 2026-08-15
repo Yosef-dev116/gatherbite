@@ -95,6 +95,41 @@ test("store observation and serviceability start concurrently, fetch once, and s
   assert.equal(JSON.stringify(result).includes("little-caesars"), false);
 });
 
+test("retained provider references cannot mutate the immutable observation or diverge it from catalogs", async () => {
+  const retained = snapshot("10950");
+  let inspected = false;
+  await evaluateGatherBite(input, dependencies({
+    supportedStoreIds: ["10950"],
+    observeStores: async () => [retained],
+    runPlanner: async (_request, deps) => {
+      const observed = await deps.observationPromise;
+      retained.address = "mutated private address";
+      retained.products[0]!.name = "Mutated product";
+      retained.products[0]!.defaultToppingCodes = ["BAD"];
+      retained.products.push({ id: "BAD", name: "Bad", category: "Pizza", toppings: [], defaultToppingCodes: [], variantCodes: [], priceInfoIfAvailable: 0 });
+      retained.variants![0]!.priceCad = 999;
+      retained.toppingOptions!.push({ code: "BAD", name: "Bad", category: "Pizza" });
+      retained.errors.push("mutated error");
+
+      const immutable = observed.snapshots[0]!;
+      assert.equal(immutable.address, "10950 public address");
+      assert.equal(immutable.products[0]?.name, "Pizza");
+      assert.deepEqual(immutable.products[0]?.defaultToppingCodes, ["X", "C"]);
+      assert.equal(immutable.products.length, 1);
+      assert.equal(immutable.variants?.[0]?.priceCad, 14.99);
+      assert.equal(immutable.toppingOptions?.length, 3);
+      assert.deepEqual(immutable.errors, []);
+      assert.equal(observed.catalogs.get("10950")?.productsByCode.get("S_PIZZA")?.name, "Pizza");
+      assert.equal(observed.catalogs.get("10950")?.variantsByCode.get("12SCREEN")?.priceCad, 14.99);
+      assert.throws(() => immutable.products.push(retained.products[0]!), TypeError);
+      assert.throws(() => (immutable.products[0]!.defaultToppingCodes as string[]).push("BAD"), TypeError);
+      inspected = true;
+      return { journeys: [], verificationAttempts: 0, terminal: false };
+    },
+  }));
+  assert.equal(inspected, true, "orchestration must not swallow this mutation regression as a passing test");
+});
+
 test("candidate rejection and adaptation events remain in emitted candidate order", async () => {
   const emitted: string[] = [];
   await evaluateGatherBite(input, dependencies({
@@ -148,4 +183,16 @@ test("the overall deadline aborts observation and Planner/model work and fails c
   assert.equal(plannerAbort, true);
   assert.equal(result.recommended, null);
   assert.equal(result.events.some((event) => event.type === "error"), true);
+});
+
+test("normal no-candidate completion aborts eager observation work that Planner never consumed", async () => {
+  let observedAbort = false;
+  await evaluateGatherBite(input, dependencies({
+    observeStores: async (_ids, _timing, signal) => new Promise((resolve) => {
+      assert.ok(signal);
+      signal.addEventListener("abort", () => { observedAbort = true; resolve([]); }, { once: true });
+    }),
+    runPlanner: async () => ({ journeys: [], verificationAttempts: 0, terminal: false }),
+  }));
+  assert.equal(observedAbort, true);
 });

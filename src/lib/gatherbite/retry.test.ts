@@ -37,3 +37,18 @@ test("a second transient failure is returned after exactly two attempts", async 
   }, isTransientGatherBiteError));
   assert.equal(attempts, 2);
 });
+
+test("explicit abort, auth, CAPTCHA, anti-bot, and client barriers override contradictory retry hints", () => {
+  const barriers = [
+    { name: "AbortError", isRetryable: true, statusCode: 503 },
+    { code: "CAPTCHA_REQUIRED", isRetryable: true, statusCode: 503 },
+    { code: "ANTI_BOT_BLOCKED", isRetryable: true, statusCode: 429 },
+    { code: "AUTHENTICATION_REQUIRED", isRetryable: true, statusCode: 503 },
+    { statusCode: 401, isRetryable: true },
+    { statusCode: 403, isRetryable: true },
+    { statusCode: 400, isRetryable: true },
+    { statusCode: 503, isRetryable: false },
+  ];
+
+  for (const barrier of barriers) assert.equal(isTransientGatherBiteError(barrier), false);
+});
