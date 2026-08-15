@@ -5,7 +5,7 @@ import {
   type GatherBiteEvaluation,
   type GatherBiteInput,
 } from "@/lib/gatherbite/contracts";
-import { type EventSink } from "@/lib/gatherbite/events";
+import { redactFacts, type EventSink } from "@/lib/gatherbite/events";
 import {
   createDefaultGatherBiteDependencies,
   evaluateGatherBite,
@@ -54,7 +54,12 @@ export function createGatherBitePostHandler(evaluator: RouteEvaluator = defaultE
     const timing = createTimingCollector();
     try {
       const result = await evaluator(parsed.data, undefined, timing.record);
-      return Response.json(result, { headers: { "Server-Timing": timing.serverTiming() } });
+      // Redact exact evidence facts the same way the NDJSON stream route
+      // already does before this leaves the server — the JSON route must not
+      // expose raw dietary/menu-integrity/budget facts the stream transport
+      // treats as needing redaction.
+      const redactedResult = redactFacts(result) as GatherBiteEvaluation;
+      return Response.json(redactedResult, { headers: { "Server-Timing": timing.serverTiming() } });
     } catch {
       return Response.json(
         { error: "GatherBite could not complete this evaluation." },

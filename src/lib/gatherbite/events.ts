@@ -102,7 +102,14 @@ function hasUnsafeFacts(value: unknown): boolean {
   });
 }
 
-function redactFacts(value: unknown): unknown {
+/**
+ * Recursively empties every `facts` field in an arbitrary public-result-shaped
+ * value. Shared by the NDJSON stream encoder (`encodeNdjsonEvent`, on a single
+ * "complete" event) and the plain JSON route (on the whole evaluation result)
+ * so both transports redact exact evidence facts identically — there is only
+ * one implementation of this invariant.
+ */
+export function redactFacts(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(redactFacts);
   if (value === null || typeof value !== "object") return value;
 
