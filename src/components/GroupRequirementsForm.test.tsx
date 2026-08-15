@@ -81,6 +81,68 @@ test("the stream client falls back exactly once when streaming fails before any 
   assert.deepEqual(seen, [{ type: "complete", result: emptyEvaluation }]);
 });
 
+for (const status of [404, 500]) {
+  test(`stream HTTP ${status} falls back to JSON exactly once before any public event`, async () => {
+    const pageModule = await import("../app/page");
+    const requestEvaluation = (pageModule as unknown as {
+      requestGatherBiteEvaluation: (
+        input: GatherBiteInput,
+        options: {
+          fetchImpl: typeof fetch;
+          onEvent: (event: PublicGatherBiteEvent) => void;
+        },
+      ) => Promise<GatherBiteEvaluation>;
+    }).requestGatherBiteEvaluation;
+    const calls: string[] = [];
+    const seen: PublicGatherBiteEvent[] = [];
+    const fetchImpl: typeof fetch = async (resource) => {
+      calls.push(String(resource));
+      if (calls.length === 1) {
+        return Response.json(
+          { error: "private upstream route detail must not escape" },
+          { status },
+        );
+      }
+      return Response.json(emptyEvaluation);
+    };
+
+    const result = await requestEvaluation(input, {
+      fetchImpl,
+      onEvent: (event) => seen.push(event),
+    });
+
+    assert.deepEqual(calls, ["/api/gatherbite/stream", "/api/gatherbite"]);
+    assert.deepEqual(result, emptyEvaluation);
+    assert.deepEqual(seen, [{ type: "complete", result: emptyEvaluation }]);
+  });
+}
+
+test("stream HTTP 400 remains a terminal public validation error without fallback", async () => {
+  const pageModule = await import("../app/page");
+  const requestEvaluation = (pageModule as unknown as {
+    requestGatherBiteEvaluation: (
+      input: GatherBiteInput,
+      options: {
+        fetchImpl: typeof fetch;
+        onEvent: (event: PublicGatherBiteEvent) => void;
+      },
+    ) => Promise<GatherBiteEvaluation>;
+  }).requestGatherBiteEvaluation;
+  const calls: string[] = [];
+  const seen: PublicGatherBiteEvent[] = [];
+  const fetchImpl: typeof fetch = async (resource) => {
+    calls.push(String(resource));
+    return Response.json({ error: "Enter a valid group size." }, { status: 400 });
+  };
+
+  await assert.rejects(
+    requestEvaluation(input, { fetchImpl, onEvent: (event) => seen.push(event) }),
+    /Enter a valid group size/,
+  );
+  assert.deepEqual(calls, ["/api/gatherbite/stream"]);
+  assert.deepEqual(seen, []);
+});
+
 test("the stream client never starts a duplicate evaluation after a public event", async () => {
   const pageModule = await import("../app/page");
   const requestEvaluation = (pageModule as unknown as {

@@ -61,7 +61,12 @@ export async function requestGatherBiteEvaluation(
       body: JSON.stringify(input),
       signal: options.signal,
     });
-    if (!response.ok) throw new PublicRequestError(await responseError(response));
+    if (!response.ok) {
+      if (response.status === 400) {
+        throw new PublicRequestError(await responseError(response));
+      }
+      throw new Error("Streaming is unavailable.");
+    }
     if (!response.body) throw new Error("Streaming is unavailable.");
 
     const parser = createNdjsonParser();
