@@ -8,6 +8,10 @@ import type {
   PublicGatherBiteEvent,
 } from "./contracts";
 import { createNdjsonParser } from "./events";
+import {
+  evaluateGatherBite,
+  type GatherBiteDependencies,
+} from "./orchestrator";
 
 const input: GatherBiteInput = {
   attendees: 6,
@@ -125,6 +129,48 @@ test("request cancellation reaches the evaluator abort chain", async () => {
   requestController.abort();
   await aborted;
   await response.body?.cancel();
+});
+
+test("real evaluation request cancellation emits one generic error and no post-error events", async () => {
+  const requestController = new AbortController();
+  const dependencies: GatherBiteDependencies = {
+    supportedStoreIds: ["10950"],
+    observeStores: async (_ids, _timing, signal) => new Promise((resolve) => {
+      signal?.addEventListener("abort", () => resolve([]), { once: true });
+    }),
+    checkServiceability: async () => ({
+      status: "UNKNOWN",
+      applicability: "REQUIRED",
+      storeIds: [],
+      observedAt: "2026-08-15T00:00:00.000Z",
+      source: "test",
+      reason: "unknown",
+    }),
+    runPlanner: async (_input, deps) => new Promise((resolve) => {
+      deps.abortSignal?.addEventListener("abort", () => resolve({
+        journeys: [],
+        verificationAttempts: 0,
+        terminal: true,
+      }), { once: true });
+    }),
+    plannerModel: null as never,
+    verifyCandidate: null as never,
+    now: Date.now,
+    deadlineMs: 15_000,
+  };
+  const post = createGatherBiteStreamPostHandler((value, onEvent, _onTiming, signal) => (
+    evaluateGatherBite(value, dependencies, onEvent, signal)
+  ));
+
+  const response = await post(request(input, requestController.signal));
+  requestController.abort();
+  const { events } = await readEvents(response);
+  assert.deepEqual(events, [
+    { type: "stage", stage: "observing", message: "Checking live Domino's options." },
+    { type: "error", message: "GatherBite could not complete this evaluation." },
+  ]);
+  assert.equal(events.some((event) => event.type === "complete"), false);
+  assert.equal(events.some((event) => event.type === "stage" && event.stage === "comparing"), false);
 });
 
 test("raw submitted delivery address bytes never appear in the stream", async () => {

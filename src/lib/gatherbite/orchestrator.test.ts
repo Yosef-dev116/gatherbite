@@ -215,9 +215,7 @@ test("an external request abort reaches observation and Planner/model work witho
   }), undefined, requestController.signal);
 
   requestController.abort();
-  const result = await resultPromise;
+  await assert.rejects(resultPromise, { name: "AbortError", message: "GatherBite evaluation was cancelled." });
   assert.equal(observedAbort, true);
   assert.equal(plannerAbort, true);
-  assert.equal(result.recommended, null);
-  assert.equal(result.events.some((event) => event.type === "error"), true);
 });

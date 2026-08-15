@@ -193,15 +193,22 @@ export async function evaluateGatherBite(
   const controller = new AbortController();
   let rejectCancellation!: (reason: Error) => void;
   const cancellation = new Promise<never>((_resolve, reject) => { rejectCancellation = reject; });
+  const requestCancellationError = Object.assign(
+    new Error("GatherBite evaluation was cancelled."),
+    { name: "AbortError" },
+  );
+  let requestCancelled = false;
   const abortForRequest = () => {
-    if (!controller.signal.aborted) controller.abort();
-    rejectCancellation(Object.assign(new Error("GatherBite evaluation was cancelled."), { name: "AbortError" }));
+    requestCancelled = true;
+    rejectCancellation(requestCancellationError);
+    if (!controller.signal.aborted) controller.abort(requestCancellationError);
   };
   if (externalSignal?.aborted) abortForRequest();
   else externalSignal?.addEventListener("abort", abortForRequest, { once: true });
   const timeout = setTimeout(() => {
-    if (!controller.signal.aborted) controller.abort();
-    rejectCancellation(Object.assign(new Error("GatherBite evaluation deadline exceeded."), { name: "AbortError" }));
+    const error = Object.assign(new Error("GatherBite evaluation deadline exceeded."), { name: "AbortError" });
+    rejectCancellation(error);
+    if (!controller.signal.aborted) controller.abort(error);
   }, deps.deadlineMs);
 
   const observationStartedAt = deps.now();
@@ -221,8 +228,10 @@ export async function evaluateGatherBite(
     });
     void plannerPromise.catch(() => undefined);
     planner = await Promise.race([plannerPromise, cancellation]);
+    if (requestCancelled) throw requestCancellationError;
   } catch (error) {
     if (!controller.signal.aborted) controller.abort();
+    if (requestCancelled) throw requestCancellationError;
     emit(publicEvaluationError(error));
   } finally {
     if (!controller.signal.aborted) controller.abort();
