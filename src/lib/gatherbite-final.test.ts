@@ -23,3 +23,6 @@ import "../app/api/gatherbite/route.test";
 import "./gatherbite/stream.test";
 import "../components/GroupRequirementsForm.test";
 import "../components/GatherBiteResults.test";
+import "./cart/dominosCartComparator.test";
+import "./cart/dominosCartGuard.test";
+import "./cart/dominosCartFallback.test";
