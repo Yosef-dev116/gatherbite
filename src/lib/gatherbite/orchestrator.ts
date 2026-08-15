@@ -30,7 +30,9 @@ import { isTransientGatherBiteError, withOneTransientRetry } from "./retry";
 import type { TimingEntry } from "./timing";
 
 export const SUPPORTED_STORE_IDS = ["10950", "10953"] as const;
-const DEFAULT_DEADLINE_MS = 15_000;
+// OpenRouter's free-tier models can be slower to respond than the proven
+// Groq path; raise the deadline only for that path, unchanged otherwise.
+const DEFAULT_DEADLINE_MS = process.env.GATHERBITE_MODEL_PROVIDER === "openrouter" ? 30_000 : 15_000;
 
 export interface GatherBiteDependencies {
   supportedStoreIds: readonly string[];
