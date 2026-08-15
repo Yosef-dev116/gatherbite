@@ -34,7 +34,8 @@ export function createEventCollector(): EventCollector {
 
 /** Encode one public event as a transport-friendly NDJSON record. */
 export function encodeNdjsonEvent(event: PublicGatherBiteEvent): Uint8Array {
-  return new TextEncoder().encode(`${JSON.stringify(event)}\n`);
+  const transportEvent = event.type === "complete" ? redactFacts(event) : event;
+  return new TextEncoder().encode(`${JSON.stringify(transportEvent)}\n`);
 }
 
 export interface NdjsonParser {
@@ -83,6 +84,30 @@ function hasUnknownKeys(input: unknown, parsed: unknown): boolean {
   });
 }
 
+function hasUnsafeFacts(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasUnsafeFacts);
+  if (value === null || typeof value !== "object") return false;
+
+  return Object.entries(value as Record<string, unknown>).some(([key, child]) => {
+    if (key === "facts") {
+      return child === null || typeof child !== "object" || Array.isArray(child) || Object.keys(child).length > 0;
+    }
+    return hasUnsafeFacts(child);
+  });
+}
+
+function redactFacts(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactFacts);
+  if (value === null || typeof value !== "object") return value;
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, child]) => [
+      key,
+      key === "facts" ? {} : redactFacts(child),
+    ]),
+  );
+}
+
 /**
  * Incrementally parses newline-delimited public events. A chunk may end in
  * the middle of a JSON record, so the incomplete suffix is retained until the
@@ -111,7 +136,7 @@ export function createNdjsonParser(): NdjsonParser {
       // with the source tree so nested private/unknown fields are rejected at
       // this transport boundary instead of silently disappearing.
       const publicResult = PublicGatherBiteEventSchema.safeParse(value);
-      if (!publicResult.success || hasUnknownKeys(value, publicResult.data)) {
+      if (!publicResult.success || hasUnknownKeys(value, publicResult.data) || hasUnsafeFacts(value)) {
         throw new Error("Invalid public GatherBite event.");
       }
     }
