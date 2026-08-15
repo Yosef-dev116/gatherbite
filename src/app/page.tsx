@@ -2,14 +2,17 @@
 
 import { useEffect, useReducer, useRef, useState } from "react";
 
+import type { CartEvent, CartPreparationUiState } from "@/components/CartPreparation";
 import { EvaluationProgress } from "@/components/EvaluationProgress";
 import { GatherBiteResults, reduceDecisionState } from "@/components/GatherBiteResults";
 import { GroupRequirementsForm } from "@/components/GroupRequirementsForm";
+import type { CartPreparationResult } from "@/lib/cart/contracts";
 import {
   GatherBiteEvaluationSchema,
   type GatherBiteEvaluation,
   type GatherBiteInput,
   type PublicGatherBiteEvent,
+  type VerifiedDominosOption,
 } from "@/lib/gatherbite/contracts";
 import { createNdjsonParser } from "@/lib/gatherbite/events";
 
@@ -111,6 +114,39 @@ export async function requestGatherBiteEvaluation(
   }
 }
 
+interface CartPreparationResponse {
+  events: CartEvent[];
+  result: CartPreparationResult;
+}
+
+function isCartPreparationResponse(value: unknown): value is CartPreparationResponse {
+  if (value === null || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  return Array.isArray(record.events)
+    && record.result !== null
+    && typeof record.result === "object"
+    && typeof (record.result as { status?: unknown }).status === "string";
+}
+
+/** POSTs the organizer's selected candidate for fresh re-verification and cart preparation. Never trusts the client's own copy of the candidate beyond sending it for the server to independently re-check. */
+async function requestCartPreparation(
+  option: VerifiedDominosOption,
+  organizerInput: GatherBiteInput,
+  fetchImpl: typeof fetch,
+  signal: AbortSignal,
+): Promise<CartPreparationResponse> {
+  const response = await fetchImpl("/api/gatherbite/cart/prepare", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ candidate: option.candidate, input: organizerInput }),
+    signal,
+  });
+  if (!response.ok) throw new Error(await responseError(response));
+  const body: unknown = await response.json();
+  if (!isCartPreparationResponse(body)) throw new Error("GatherBite returned an invalid cart preparation result.");
+  return body;
+}
+
 export default function Home() {
   const [input, setInput] = useState<GatherBiteInput | null>(null);
   const [events, setEvents] = useState<PublicGatherBiteEvent[]>([]);
@@ -121,18 +157,25 @@ export default function Home() {
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cartPreparation, setCartPreparation] = useState<CartPreparationUiState | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
+  const cartRequest = useRef<AbortController | null>(null);
 
-  useEffect(() => () => activeRequest.current?.abort(), []);
+  useEffect(() => () => {
+    activeRequest.current?.abort();
+    cartRequest.current?.abort();
+  }, []);
 
   async function evaluate(nextInput: GatherBiteInput) {
     activeRequest.current?.abort();
+    cartRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
     setInput(nextInput);
     setEvents([]);
     setEvaluation(null);
     dispatchDecision({ type: "clear" });
+    setCartPreparation(null);
     setError(null);
     setBusy(true);
 
@@ -154,6 +197,27 @@ export default function Home() {
         activeRequest.current = null;
         setBusy(false);
       }
+    }
+  }
+
+  async function prepareCart(option: VerifiedDominosOption) {
+    if (!input) return;
+    cartRequest.current?.abort();
+    const controller = new AbortController();
+    cartRequest.current = controller;
+    setCartPreparation({ phase: "loading", events: [] });
+
+    try {
+      const { events: cartEvents, result } = await requestCartPreparation(option, input, fetch, controller.signal);
+      if (cartRequest.current === controller) setCartPreparation({ phase: "done", events: cartEvents, result });
+    } catch (caught) {
+      if (controller.signal.aborted || cartRequest.current !== controller) return;
+      setCartPreparation({
+        phase: "error",
+        message: caught instanceof Error ? caught.message : "Cart preparation could not be completed.",
+      });
+    } finally {
+      if (cartRequest.current === controller) cartRequest.current = null;
     }
   }
 
@@ -186,9 +250,23 @@ export default function Home() {
           evaluation={evaluation}
           selectedCandidateId={decision.selectedCandidateId}
           cartIntent={decision.cartIntent}
-          onSelect={(candidateId) => dispatchDecision({ type: "select", candidateId })}
-          onChangeSelection={() => dispatchDecision({ type: "clear" })}
-          onPrepareCart={() => dispatchDecision({ type: "prepare" })}
+          onSelect={(candidateId) => {
+            cartRequest.current?.abort();
+            cartRequest.current = null;
+            setCartPreparation(null);
+            dispatchDecision({ type: "select", candidateId });
+          }}
+          onChangeSelection={() => {
+            cartRequest.current?.abort();
+            cartRequest.current = null;
+            setCartPreparation(null);
+            dispatchDecision({ type: "clear" });
+          }}
+          onPrepareCart={(option) => {
+            dispatchDecision({ type: "prepare" });
+            void prepareCart(option);
+          }}
+          cartPreparationState={cartPreparation}
         />
       )}
 

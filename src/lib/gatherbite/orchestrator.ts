@@ -29,7 +29,7 @@ import type { DominosOptionPresentationSource } from "./ranking";
 import { isTransientGatherBiteError, withOneTransientRetry } from "./retry";
 import type { TimingEntry } from "./timing";
 
-const SUPPORTED_STORE_IDS = ["10950", "10953"] as const;
+export const SUPPORTED_STORE_IDS = ["10950", "10953"] as const;
 const DEFAULT_DEADLINE_MS = 15_000;
 
 export interface GatherBiteDependencies {

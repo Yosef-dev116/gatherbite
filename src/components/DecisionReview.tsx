@@ -1,5 +1,6 @@
 import { PIZZA_PREFERENCE_LABELS } from "@/lib/types";
 import type { VerifiedDominosOption } from "@/lib/gatherbite/contracts";
+import { CartPreparation, type CartPreparationUiState } from "./CartPreparation";
 import { CheckGrid, formatWait, OrderLines, verifiedTotal } from "./VerifiedOptions";
 
 export type CartIntent = "idle" | "requested";
@@ -9,11 +10,13 @@ export function DecisionReview({
   cartIntent,
   onChange,
   onPrepareCart,
+  cartPreparationState,
 }: {
   option: VerifiedDominosOption;
   cartIntent: CartIntent;
   onChange: () => void;
-  onPrepareCart: () => void;
+  onPrepareCart: (option: VerifiedDominosOption) => void;
+  cartPreparationState?: CartPreparationUiState | null;
 }) {
   const total = verifiedTotal(option);
   const preference = option.evidence.preference;
@@ -67,15 +70,19 @@ export function DecisionReview({
       )}
 
       {cartIntent === "requested" && (
-        <p role="status" className="rounded-xl border border-accent bg-accent-soft px-4 py-3 text-sm text-accent">
-          Cart preparation is the next verified step. No restaurant cart has been created yet.
-        </p>
+        cartPreparationState ? (
+          <CartPreparation state={cartPreparationState} />
+        ) : (
+          <p role="status" className="rounded-xl border border-accent bg-accent-soft px-4 py-3 text-sm text-accent">
+            Cart preparation is the next verified step. No restaurant cart has been created yet.
+          </p>
+        )
       )}
 
       <button
         type="button"
         className="primary-action"
-        onClick={onPrepareCart}
+        onClick={() => onPrepareCart(option)}
         disabled={cartIntent === "requested"}
       >
         {cartIntent === "requested" ? "Cart preparation requested" : "Prepare my Domino's cart"}

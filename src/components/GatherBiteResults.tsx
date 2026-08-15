@@ -1,6 +1,7 @@
 "use client";
 
-import type { GatherBiteEvaluation } from "@/lib/gatherbite/contracts";
+import type { GatherBiteEvaluation, VerifiedDominosOption } from "@/lib/gatherbite/contracts";
+import type { CartPreparationUiState } from "./CartPreparation";
 import { DecisionReview, type CartIntent } from "./DecisionReview";
 import { VerificationJourney } from "./VerificationJourney";
 import { VerifiedOptions } from "./VerifiedOptions";
@@ -55,13 +56,15 @@ export function GatherBiteResults({
   onSelect,
   onChangeSelection,
   onPrepareCart,
+  cartPreparationState,
 }: {
   evaluation: GatherBiteEvaluation;
   selectedCandidateId: string | null;
   cartIntent: CartIntent;
   onSelect: (candidateId: string) => void;
   onChangeSelection: () => void;
-  onPrepareCart: () => void;
+  onPrepareCart: (option: VerifiedDominosOption) => void;
+  cartPreparationState?: CartPreparationUiState | null;
 }) {
   const approved = evaluation.recommended
     ? [evaluation.recommended, ...evaluation.alternatives]
@@ -88,6 +91,7 @@ export function GatherBiteResults({
           cartIntent={cartIntent}
           onChange={onChangeSelection}
           onPrepareCart={onPrepareCart}
+          cartPreparationState={cartPreparationState}
         />
       )}
     </div>
