@@ -6,6 +6,7 @@ import type { CartEvent, CartPreparationUiState } from "@/components/CartPrepara
 import { EvaluationProgress } from "@/components/EvaluationProgress";
 import { GatherBiteResults, reduceDecisionState } from "@/components/GatherBiteResults";
 import { GroupRequirementsForm } from "@/components/GroupRequirementsForm";
+import { buildGuidedHandoff } from "@/lib/cart/dominosCartFallback";
 import type { CartPreparationResult } from "@/lib/cart/contracts";
 import {
   GatherBiteEvaluationSchema,
@@ -14,6 +15,7 @@ import {
   type PublicGatherBiteEvent,
   type VerifiedDominosOption,
 } from "@/lib/gatherbite/contracts";
+import { DEMO_EVALUATION, DEMO_INPUT } from "@/lib/gatherbite/demoFixture";
 import { createNdjsonParser } from "@/lib/gatherbite/events";
 
 interface EvaluationRequestOptions {
@@ -158,8 +160,24 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cartPreparation, setCartPreparation] = useState<CartPreparationUiState | null>(null);
+  const [isDemo, setIsDemo] = useState(false);
   const activeRequest = useRef<AbortController | null>(null);
   const cartRequest = useRef<AbortController | null>(null);
+
+  function showDemo() {
+    activeRequest.current?.abort();
+    cartRequest.current?.abort();
+    activeRequest.current = null;
+    cartRequest.current = null;
+    setError(null);
+    setBusy(false);
+    setIsDemo(true);
+    setInput(DEMO_INPUT);
+    setEvents(DEMO_EVALUATION.events);
+    setEvaluation(DEMO_EVALUATION);
+    dispatchDecision({ type: "clear" });
+    setCartPreparation(null);
+  }
 
   useEffect(() => () => {
     activeRequest.current?.abort();
@@ -171,6 +189,7 @@ export default function Home() {
     cartRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
+    setIsDemo(false);
     setInput(nextInput);
     setEvents([]);
     setEvaluation(null);
@@ -203,6 +222,25 @@ export default function Home() {
   async function prepareCart(option: VerifiedDominosOption) {
     if (!input) return;
     cartRequest.current?.abort();
+    cartRequest.current = null;
+
+    if (isDemo) {
+      // DEMO MODE never calls the real cart-preparation API or a live
+      // model. buildGuidedHandoff is a pure, already-reviewed function
+      // (Task 14/16), so this renders the real guided-handoff presentation
+      // path against simulated data only.
+      const result: CartPreparationResult = {
+        status: "FALLBACK_READY",
+        actualCart: null,
+        comparison: null,
+        handoffUrl: null,
+        fallback: buildGuidedHandoff(option.candidate),
+        reason: "DEMO MODE — simulated data; no live cart was prepared.",
+      };
+      setCartPreparation({ phase: "done", events: [], result });
+      return;
+    }
+
     const controller = new AbortController();
     cartRequest.current = controller;
     setCartPreparation({ phase: "loading", events: [] });
@@ -240,6 +278,21 @@ export default function Home() {
       </ol>
 
       <GroupRequirementsForm busy={busy} onSubmit={evaluate} />
+
+      <button
+        type="button"
+        onClick={showDemo}
+        disabled={busy}
+        className="self-start rounded-lg border border-dashed border-muted px-3 py-2 text-xs font-medium text-muted transition hover:border-foreground hover:text-foreground disabled:opacity-50"
+      >
+        View demo (simulated data, not a live order)
+      </button>
+
+      {isDemo && (
+        <p role="status" className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm font-semibold text-danger">
+          DEMO MODE — this is simulated data for demonstration purposes only. It was not checked against live Domino&apos;s data or a live model, and no real order or cart was prepared.
+        </p>
+      )}
 
       <EvaluationProgress events={events} busy={busy} />
 
