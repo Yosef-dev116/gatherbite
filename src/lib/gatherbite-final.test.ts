@@ -9,3 +9,4 @@ import "./restaurants/dominosCatalog.test";
 import "./restaurants/dominosServiceability.test";
 import "./restaurants/dominosCapacity.test";
 import "./restaurants/dominosPreferences.test";
+import "./restaurants/dominosEvidence.test";

@@ -395,7 +395,7 @@ function lookupTopping(name: string): ComponentProfile | null {
  * ------------------------------------------------------------------- */
 const CRUST_PROFILES: { pattern: RegExp; profile: ComponentProfile }[] = [
   {
-    pattern: /gluten[\s-]?free/i,
+    pattern: /gluten[\s_-]?(?:free|f\b)/i,
     profile: {
       name: "Crust (Gluten Free)",
       source: `${GUIDE_SOURCE} ("Rice Flour, Water, Potato Starch, Rice Starch...May Contain: Eggs, Milk") + ${ALLERGEN_MATRIX_SOURCE} (C Milk, MC Soy — no Wheat/Gluten marked)`,
@@ -449,7 +449,7 @@ const CRUST_PROFILES: { pattern: RegExp; profile: ComponentProfile }[] = [
     },
   },
   {
-    pattern: /hand\s+tossed/i,
+    pattern: /hand[\s_-]*toss(?:ed)?/i,
     profile: {
       name: "Crust (Hand Tossed)",
       source: `${GUIDE_SOURCE} ("...Contains: Milk, Soy, Wheat")`,
@@ -470,31 +470,26 @@ const BASELINE_CHEESE = lookupTopping("Cheese")!;
 const SAUCE_NAMES = new Set(["pizza sauce", "bbq sauce", "hearty marinara sauce", "alfredo sauce", "garlic parmesan sauce", "buttermilk ranch"]);
 const CRUST_RELEVANT_RESTRICTIONS: Restriction[] = ["glutenFriendly", "dairyFree", "noEgg", "noSoy", "noMustard", "vegan"];
 
-/**
- * Evaluates a real pizza composition (crust from the item name, plus
- * explicit topping/sauce names) against a set of structured
- * restrictions. AND semantics: the result is the worst status found
- * across every component and every requested restriction - one failing
- * component fails the whole thing, and any UNKNOWN component fails
- * closed.
- *
- * Two real-world assumptions, both explicit and both real Domino's
- * defaults, not guesses: standard cheese is always present unless the
- * caller is evaluating a sauce/topping list that already substitutes
- * something else (there is no "no cheese" signal in our data model),
- * and a default Pizza Sauce is assumed ONLY when no other real sauce
- * name is already present among toppingNames (sauces are a single
- * mutually-exclusive choice, never stacked).
- */
-export function evaluateDominosDietary(itemName: string, toppingNames: string[], restrictions: Restriction[]): DietaryEvaluation {
+export interface ConfiguredPizzaComponents {
+  /** Exact live crust label or code. Null means the crust is not known. */
+  crustName: string | null;
+  /** Null explicitly means no sauce is configured. */
+  sauceName: string | null;
+  /** Null explicitly means no cheese is configured. */
+  cheeseName: string | null;
+  toppingNames: string[];
+}
+
+type NamedProfile = { name: string; profile: ComponentProfile | null };
+
+function evaluateProfiles(
+  crust: ComponentProfile | null,
+  namedComponents: NamedProfile[],
+  restrictions: Restriction[],
+): DietaryEvaluation {
   if (restrictions.length === 0) {
     return { status: "SAFE", satisfiesAll: true, evidence: [] };
   }
-
-  const crust = detectCrust(itemName);
-  const hasExplicitSauce = toppingNames.some((t) => SAUCE_NAMES.has(t.trim().toLowerCase()));
-  const impliedComponents: ComponentProfile[] = hasExplicitSauce ? [BASELINE_CHEESE] : [BASELINE_CHEESE, BASELINE_SAUCE];
-  const toppingLookups = toppingNames.map((name) => ({ name, profile: lookupTopping(name) }));
 
   const evidence: DietaryEvidence[] = [];
   let overall: DietaryStatus = "SAFE";
@@ -512,22 +507,24 @@ export function evaluateDominosDietary(itemName: string, toppingNames: string[],
         restrictionStatus = apply(restriction, restrictionStatus, crust, crust.restrictions[restriction] ?? "UNKNOWN");
       } else {
         restrictionStatus = worst(restrictionStatus, "UNKNOWN");
-        evidence.push({ component: "Crust (unrecognized/unstated)", restriction, status: "UNKNOWN", source: "No crust keyword recognized in the item name — not assumed." });
+        evidence.push({
+          component: "Crust (unrecognized/unstated)",
+          restriction,
+          status: "UNKNOWN",
+          source: "No curated crust profile matched the exact live label/code — not assumed safe.",
+        });
       }
     }
 
-    for (const component of impliedComponents) {
-      restrictionStatus = apply(restriction, restrictionStatus, component, component.restrictions[restriction] ?? "UNKNOWN");
-    }
-
-    for (const { name, profile } of toppingLookups) {
+    for (const { name, profile } of namedComponents) {
       if (!profile) {
-        // A genuinely unrecognized ingredient ALWAYS fails closed as
-        // UNKNOWN for every restriction, regardless of which one -
-        // unlike crust, there's no restriction it's safe to skip for,
-        // since we have zero data about what it actually contains.
         restrictionStatus = worst(restrictionStatus, "UNKNOWN");
-        evidence.push({ component: name, restriction, status: "UNKNOWN", source: "No curated Domino's dietary data for this ingredient — not assumed safe." });
+        evidence.push({
+          component: name,
+          restriction,
+          status: "UNKNOWN",
+          source: "No curated Domino's dietary data for this ingredient — not assumed safe.",
+        });
         continue;
       }
       restrictionStatus = apply(restriction, restrictionStatus, profile, profile.restrictions[restriction] ?? "UNKNOWN");
@@ -537,6 +534,55 @@ export function evaluateDominosDietary(itemName: string, toppingNames: string[],
   }
 
   return { status: overall, satisfiesAll: overall === "SAFE", evidence };
+}
+
+/**
+ * Evaluates an exact candidate configuration. Unlike the legacy item-name
+ * helper below, this function never adds implicit sauce or cheese: null means
+ * the candidate explicitly omitted that component, while an uncurated live
+ * name/code remains UNKNOWN and fails closed.
+ */
+export function evaluateConfiguredDominosPizza(
+  components: ConfiguredPizzaComponents,
+  restrictions: Restriction[],
+): DietaryEvaluation {
+  const namedComponents: NamedProfile[] = [
+    ...(components.sauceName === null ? [] : [{ name: components.sauceName, profile: lookupTopping(components.sauceName) }]),
+    ...(components.cheeseName === null ? [] : [{ name: components.cheeseName, profile: lookupTopping(components.cheeseName) }]),
+    ...components.toppingNames.map((name) => ({ name, profile: lookupTopping(name) })),
+  ];
+
+  return evaluateProfiles(
+    components.crustName === null ? null : detectCrust(components.crustName),
+    namedComponents,
+    restrictions,
+  );
+}
+
+/**
+ * Evaluates a real pizza composition (crust from the item name, plus
+ * explicit topping/sauce names) against a set of structured
+ * restrictions. AND semantics: the result is the worst status found
+ * across every component and every requested restriction - one failing
+ * component fails the whole thing, and any UNKNOWN component fails
+ * closed.
+ *
+ * Two real-world assumptions, both explicit and both real Domino's
+ * defaults, not guesses: standard cheese is always present unless the
+ * caller is evaluating a sauce/topping list that already substitutes
+ * something else (there is no "no cheese" signal in our data model),
+ * and a default Pizza Sauce is assumed ONLY when no other real sauce
+ * name is already present among toppingNames (sauces are a single
+ * mutually-exclusive choice, never stacked).
+ */
+export function evaluateDominosDietary(itemName: string, toppingNames: string[], restrictions: Restriction[]): DietaryEvaluation {
+  const crust = detectCrust(itemName);
+  const hasExplicitSauce = toppingNames.some((t) => SAUCE_NAMES.has(t.trim().toLowerCase()));
+  const impliedComponents: ComponentProfile[] = hasExplicitSauce ? [BASELINE_CHEESE] : [BASELINE_CHEESE, BASELINE_SAUCE];
+  return evaluateProfiles(crust, [
+    ...impliedComponents.map((profile) => ({ name: profile.name, profile })),
+    ...toppingNames.map((name) => ({ name, profile: lookupTopping(name) })),
+  ], restrictions);
 }
 
 /**

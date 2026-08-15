@@ -1,4 +1,9 @@
-import { evaluateDominosDietary, evaluateDominosDeal, isCustomizableToppingDeal } from "./dominosDietary";
+import {
+  evaluateConfiguredDominosPizza,
+  evaluateDominosDietary,
+  evaluateDominosDeal,
+  isCustomizableToppingDeal,
+} from "./dominosDietary";
 import { getDominosStoreSnapshot } from "./dominos";
 
 let pass = 0;
@@ -15,6 +20,54 @@ function check(name: string, condition: boolean) {
 }
 
 async function main() {
+// --- Configured candidates use exact components and no implicit defaults ---
+{
+  console.log("Configured pizza dietary evidence uses exact component names/codes");
+  const safe = evaluateConfiguredDominosPizza(
+    {
+      crustName: "HANDTOSS",
+      sauceName: "Pizza Sauce",
+      cheeseName: "Cheese",
+      toppingNames: ["Onions"],
+    },
+    ["noPork"],
+  );
+  check("an exact hand-tossed cheese-and-onion configuration is No Pork SAFE", safe.satisfiesAll === true);
+
+  const mayContain = evaluateConfiguredDominosPizza(
+    {
+      crustName: "HANDTOSS",
+      sauceName: "Buttermilk Ranch",
+      cheeseName: "Cheese",
+      toppingNames: [],
+    },
+    ["noMustard"],
+  );
+  check("an exact MAY_CONTAIN component fails closed", mayContain.status === "MAY_CONTAIN" && mayContain.satisfiesAll === false);
+
+  const unknownCrust = evaluateConfiguredDominosPizza(
+    {
+      crustName: "MYSTERY",
+      sauceName: "Pizza Sauce",
+      cheeseName: "Cheese",
+      toppingNames: [],
+    },
+    ["glutenFriendly"],
+  );
+  check("an exact but uncurated crust remains UNKNOWN", unknownCrust.status === "UNKNOWN" && unknownCrust.satisfiesAll === false);
+
+  const noImpliedCheese = evaluateConfiguredDominosPizza(
+    {
+      crustName: "Crunchy Thin",
+      sauceName: null,
+      cheeseName: null,
+      toppingNames: ["Onions"],
+    },
+    ["dairyFree"],
+  );
+  check("configured null cheese/sauce do not re-introduce implicit defaults", noImpliedCheese.satisfiesAll === true);
+}
+
 // --- Pork topping fails No Pork ---
 {
   console.log("Pork toppings fail No Pork");
