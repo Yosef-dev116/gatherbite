@@ -7,3 +7,5 @@ import "./gatherbite/timing.test";
 import "./pricing/peiTax.test";
 import "./restaurants/dominosCatalog.test";
 import "./restaurants/dominosServiceability.test";
+import "./restaurants/dominosCapacity.test";
+import "./restaurants/dominosPreferences.test";
