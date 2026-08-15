@@ -26,3 +26,4 @@ import "../components/GatherBiteResults.test";
 import "./cart/dominosCartComparator.test";
 import "./cart/dominosCartGuard.test";
 import "./cart/dominosCartFallback.test";
+import "./cart/dominosCartExecutor.test";
