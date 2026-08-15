@@ -175,7 +175,8 @@ export function createNdjsonParser(): NdjsonParser {
 
 /** Do not expose thrown provider/model text to a browser or event stream. */
 export function publicEvaluationError(
-  _error: unknown,
+  error: unknown,
 ): Extract<PublicGatherBiteEvent, { type: "error" }> {
+  void error;
   return { type: "error", message: "GatherBite could not complete this evaluation." };
 }
