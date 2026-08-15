@@ -36,6 +36,22 @@ export const RESTRICTION_LABELS: Record<Restriction, string> = {
   noMustard: "No Mustard",
 };
 
+export type PizzaPreference = "cheese" | "pepperoni" | "veggie" | "meatHeavy";
+
+export const ALL_PIZZA_PREFERENCES: PizzaPreference[] = [
+  "cheese",
+  "pepperoni",
+  "veggie",
+  "meatHeavy",
+];
+
+export const PIZZA_PREFERENCE_LABELS: Record<PizzaPreference, string> = {
+  cheese: "Cheese",
+  pepperoni: "Pepperoni",
+  veggie: "Veggie",
+  meatHeavy: "Meat-heavy",
+};
+
 export interface DietaryGroupInput {
   id: string;
   people: number;
@@ -48,6 +64,9 @@ export interface BuildOrderInput {
   budget: number;
   storeId: string;
   groups: DietaryGroupInput[];
+  /** Optional taste preferences for general pizza lines. These are soft
+   * ranking signals only and never participate in hard verification. */
+  pizzaPreferences?: PizzaPreference[];
 }
 
 /** A menu item as parsed from the trusted store JSON snapshot. */
@@ -122,6 +141,8 @@ export interface OrderLine {
 export interface StepEvent {
   label: string;
   kind: "info" | "success" | "failure";
+  /** Observable tool/result detail only — never private model reasoning. */
+  detail?: string;
 }
 
 /** Only produced when the blocker is specifically budget: a

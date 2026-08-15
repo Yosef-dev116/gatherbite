@@ -3,6 +3,8 @@ import { getDominosStoreSnapshot } from "@/lib/restaurants/dominos";
 import type { DominosStoreSnapshot } from "@/lib/restaurants/dominos";
 import { compareDominosStores, describeDominosTradeoff } from "@/lib/restaurants/dominosCompare";
 import type { DominosClassification, DominosComparisonResult } from "@/lib/restaurants/dominosCompare";
+import { ALL_RESTRICTIONS, RESTRICTION_LABELS } from "@/lib/types";
+import type { Restriction } from "@/lib/types";
 
 // Live data changes constantly (deals, wait times, open status) — never
 // bake this into a static build.
@@ -78,27 +80,40 @@ function StoreCard({ snapshot, result }: { snapshot: DominosStoreSnapshot; resul
 export default async function CompareDominosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ people?: string; budget?: string; dietary?: string }>;
+  searchParams: Promise<{ people?: string; budget?: string; dietary?: string; restriction?: string | string[] }>;
 }) {
   const params = await searchParams;
   const people = Math.max(1, Number(params.people) || 18);
   const budget = Math.max(1, Number(params.budget) || 120);
-  const hasDietaryGroups = params.dietary === "true";
+  const rawRestrictions = Array.isArray(params.restriction)
+    ? params.restriction
+    : params.restriction
+      ? [params.restriction]
+      : [];
+  const dietaryRestrictions = rawRestrictions.filter((value): value is Restriction =>
+    ALL_RESTRICTIONS.includes(value as Restriction)
+  );
+  const hasLegacyUnknownDietaryGroup = params.dietary === "true" && dietaryRestrictions.length === 0;
 
   const snapshots = await Promise.all(STORE_IDS.map((id) => getDominosStoreSnapshot(id)));
-  const results = compareDominosStores(snapshots, { people, budget, hasDietaryGroups });
+  const results = compareDominosStores(snapshots, {
+    people,
+    budget,
+    dietaryRestrictions,
+    hasDietaryGroups: hasLegacyUnknownDietaryGroup,
+  });
   const tradeoff = describeDominosTradeoff(results);
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10 sm:px-6">
       <header>
-        <p className="text-xs font-semibold tracking-widest text-accent uppercase">PEI IT Alliance</p>
+        <p className="text-xs font-semibold tracking-widest text-accent uppercase">GatherBite debug view</p>
         <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Compare Nearby Domino&apos;s</h1>
         <p className="mt-1.5 text-sm text-muted">
-          Live comparison only — separate from and does not change the Little Caesars order flow.
+          Live adapter diagnostics. The core GatherBite experience evaluates these stores from the main page.
         </p>
         <Link href="/" className="mt-1 inline-block text-sm text-accent hover:underline">
-          ← Back to Tonight&apos;s Order
+          ← Back to GatherBite
         </Link>
       </header>
 
@@ -128,11 +143,24 @@ export default async function CompareDominosPage({
               />
             </label>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="dietary" value="true" defaultChecked={hasDietaryGroups} className="h-4 w-4 accent-accent" />
-              <span className="font-medium">Dietary groups required</span>
-            </label>
+          <fieldset>
+            <legend className="text-sm font-medium">Dietary restrictions</legend>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {ALL_RESTRICTIONS.map((restriction) => (
+                <label key={restriction} className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs">
+                  <input
+                    type="checkbox"
+                    name="restriction"
+                    value={restriction}
+                    defaultChecked={dietaryRestrictions.includes(restriction)}
+                    className="h-3.5 w-3.5 accent-accent"
+                  />
+                  <span>{RESTRICTION_LABELS[restriction]}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <div className="flex justify-end">
             <button
               type="submit"
               className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:bg-[#c04a1a]"
@@ -143,12 +171,10 @@ export default async function CompareDominosPage({
         </form>
       </section>
 
-      {hasDietaryGroups && (
+      {hasLegacyUnknownDietaryGroup && (
         <div className="rounded-lg border border-border bg-surface px-3.5 py-3 text-sm text-muted">
-          Domino&apos;s can&apos;t be fully verified for dietary groups yet — ingredient/allergen mappings for this
-          menu haven&apos;t been curated (unlike the Little Caesars data Night Shift already checks against). Every
-          store below is shown as <span className="font-medium text-foreground">Insufficient Dietary Data</span>{" "}
-          rather than a guess.
+          This legacy URL says a dietary group exists but does not identify its restrictions. Results remain
+          <span className="font-medium text-foreground"> Insufficient Dietary Data</span> rather than guessing.
         </div>
       )}
 

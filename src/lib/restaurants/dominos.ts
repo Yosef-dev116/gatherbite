@@ -16,6 +16,16 @@ const MENU_URL = (storeId: string) => `https://order.dominos.ca/power/store/${st
 /** How long to wait for each endpoint before treating it as failed. */
 export const FETCH_TIMEOUT_MS = 8000;
 
+export type DominosFetchStage = "profile" | "menu";
+
+export interface DominosTimingEvent {
+  storeId: string;
+  stage: DominosFetchStage;
+  durationMs: number;
+}
+
+export type DominosTimingObserver = (event: DominosTimingEvent) => void;
+
 export interface WaitMinutes {
   min: number;
   max: number;
@@ -120,7 +130,13 @@ export function describeError(reason: unknown): string {
   return String(reason);
 }
 
-async function fetchJson(url: string): Promise<unknown> {
+async function fetchJson(
+  url: string,
+  storeId: string,
+  stage: DominosFetchStage,
+  onTiming?: DominosTimingObserver
+): Promise<unknown> {
+  const startedAt = performance.now();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -131,6 +147,7 @@ async function fetchJson(url: string): Promise<unknown> {
     return await res.json();
   } finally {
     clearTimeout(timeout);
+    onTiming?.({ storeId, stage, durationMs: performance.now() - startedAt });
   }
 }
 
@@ -224,11 +241,17 @@ function extractProducts(menu: Record<string, unknown>): DominosProduct[] {
  * the caller. Every value is either real live data or null/unknown;
  * nothing is invented.
  */
-export async function getDominosStoreSnapshot(storeId: string): Promise<DominosStoreSnapshot> {
+export async function getDominosStoreSnapshot(
+  storeId: string,
+  onTiming?: DominosTimingObserver
+): Promise<DominosStoreSnapshot> {
   const fetchedAt = new Date().toISOString();
   const errors: string[] = [];
 
-  const [profileResult, menuResult] = await Promise.allSettled([fetchJson(PROFILE_URL(storeId)), fetchJson(MENU_URL(storeId))]);
+  const [profileResult, menuResult] = await Promise.allSettled([
+    fetchJson(PROFILE_URL(storeId), storeId, "profile", onTiming),
+    fetchJson(MENU_URL(storeId), storeId, "menu", onTiming),
+  ]);
 
   let profile: Record<string, unknown> | null = null;
   if (profileResult.status === "fulfilled") {

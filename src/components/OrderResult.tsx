@@ -4,8 +4,7 @@ import { useMemo, useState } from "react";
 import { RESTRICTION_LABELS } from "@/lib/types";
 import type { BuildOrderInput, BuildOrderResult, OrderLine, PlanLine, StepEvent, VerifyResult } from "@/lib/types";
 import { addBufferItem, linesToOrderLines } from "@/lib/scoring";
-
-const STORE_ORDER_URL = "https://order.littlecaesars.ca/en-ca/order/delivery/stores/10088/menu/";
+import { LITTLE_CAESARS_ORDER_URL } from "@/lib/menu";
 
 function pluralPeople(n: number): string {
   return n === 1 ? "1 person" : `${n} people`;
@@ -375,7 +374,7 @@ export function OrderSheet({
       {displayVerified ? (
         <>
           <a
-            href={STORE_ORDER_URL}
+            href={LITTLE_CAESARS_ORDER_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-1 inline-flex items-center justify-center rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground transition-colors hover:bg-[#c04a1a]"

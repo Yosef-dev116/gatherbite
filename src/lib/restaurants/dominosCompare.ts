@@ -161,6 +161,26 @@ export function classifyDominosStore(
 
   const wantsDelivery = requirements.servicePreference === "delivery";
   const wantsCarryout = requirements.servicePreference === "carryout";
+  if (wantsDelivery && snapshot.deliveryAvailable === null) {
+    return {
+      storeId: snapshot.storeId,
+      classification: "INSUFFICIENT_UNKNOWN_DATA",
+      reason: "Live delivery availability could not be confirmed.",
+      estimatedTotalCad: null,
+      dealUsed: null,
+      waitMinutes,
+    };
+  }
+  if (wantsCarryout && snapshot.carryoutAvailable === null) {
+    return {
+      storeId: snapshot.storeId,
+      classification: "INSUFFICIENT_UNKNOWN_DATA",
+      reason: "Live carryout availability could not be confirmed.",
+      estimatedTotalCad: null,
+      dealUsed: null,
+      waitMinutes,
+    };
+  }
   if (wantsDelivery && snapshot.deliveryAvailable === false) {
     return {
       storeId: snapshot.storeId,

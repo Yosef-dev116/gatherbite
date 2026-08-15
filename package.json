@@ -1,5 +1,5 @@
 {
-  "name": "night-shift-order",
+  "name": "gatherbite",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,6 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "eve:info": "eve info",
+    "eve:build": "eve build",
+    "eve:dev": "eve dev --no-ui --port 2100",
+    "test:eve-spike": "tsx agent/spike.test.ts",
     "test:verify": "tsx src/lib/verify.test.ts",
     "test:scoring": "tsx src/lib/scoring.test.ts",
     "test:input": "tsx src/lib/order-input-schema.test.ts",
@@ -15,7 +19,8 @@
     "test:restrictions": "tsx src/lib/new-restrictions.test.ts",
     "test:dominos": "tsx src/lib/restaurants/dominos.test.ts",
     "test:dominos-dietary": "tsx src/lib/restaurants/dominosDietary.test.ts",
-    "test": "npm run test:verify && npm run test:scoring && npm run test:input && npm run test:buffer && npm run test:add-buffer && npm run test:restrictions && npm run test:dominos && npm run test:dominos-dietary"
+    "test:gatherbite": "tsx src/lib/gatherbite.test.ts",
+    "test": "npm run test:verify && npm run test:scoring && npm run test:input && npm run test:buffer && npm run test:add-buffer && npm run test:restrictions && npm run test:dominos && npm run test:dominos-dietary && npm run test:gatherbite"
   },
   "dependencies": {
     "@ai-sdk/groq": "^4.0.28",
@@ -32,6 +37,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.1",
+    "eve": "^0.38.3",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
     "typescript": "^5"

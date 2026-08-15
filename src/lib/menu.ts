@@ -1,5 +1,5 @@
 import rawMenu from "../data/menu-10088.json";
-import type { MenuItem, Restriction } from "./types";
+import type { MenuItem, PizzaPreference, Restriction } from "./types";
 
 interface RawMenuItem {
   id?: string;
@@ -51,6 +51,7 @@ export const MENU_BY_ID: Record<string, MenuItem> = Object.fromEntries(
 );
 
 export const FEE_STRUCTURE = rawMenu.delivery_fees_from_snapshot;
+export const LITTLE_CAESARS_ORDER_URL = rawMenu.source_url;
 
 /**
  * Trusted, developer-curated dietary tags. This is intentionally SEPARATE
@@ -121,6 +122,33 @@ export function itemSatisfies(itemId: string, restrictions: Restriction[]): bool
 export function anyMenuItemSatisfies(restrictions: Restriction[]): boolean {
   if (restrictions.length === 0) return true;
   return MENU_ITEMS.some((item) => itemSatisfies(item.id, restrictions));
+}
+
+/** Curated taste tags for real, agent-visible pizza items. Unlike dietary
+ * tags, these are soft ordering hints only and make no safety claim. */
+const PIZZA_PREFERENCE_ITEMS: Record<PizzaPreference, Set<string>> = {
+  cheese: new Set([
+    "deep-dish-slices-n-stix-cheese-p7",
+    "detroit-style-deep-dish-cheese-p20",
+    "classic-cheese-p29",
+    "stuffed-crust-cheese-p34",
+    "classic-cheese-p38",
+    "stuffed-crust-cheese-p39",
+    "thin-crust-cheese-p45",
+  ]),
+  pepperoni: new Set(["classic-pepperoni-p28", "classic-pepperoni-p37"]),
+  veggie: new Set([
+    "detroit-style-deep-dish-veggie-p19",
+    "veggie-p26",
+    "stuffed-crust-veggie-p33",
+    "veggie-p37",
+    "thin-crust-veggie-p49",
+  ]),
+  meatHeavy: new Set(["3-meat-treat-p2", "ultimate-supreme-p23", "canadian-p4"]),
+};
+
+export function itemMatchesPizzaPreference(itemId: string, preference: PizzaPreference): boolean {
+  return PIZZA_PREFERENCE_ITEMS[preference].has(itemId);
 }
 
 /**

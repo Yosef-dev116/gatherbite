@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Night Shift Order",
-  description: "Builds tonight's verified Little Caesars order for the PEI IT Alliance Night Shift.",
+  title: "GatherBite",
+  description: "The AI agent that figures out how to feed your group — with deterministic verification before human approval.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -1,6 +1,6 @@
-import { MENU_BY_ID, MENU_ITEMS, FEE_STRUCTURE, itemSatisfies } from "./menu";
+import { MENU_BY_ID, MENU_ITEMS, FEE_STRUCTURE, itemMatchesPizzaPreference, itemSatisfies } from "./menu";
 import { round2, verifyPlan } from "./verify";
-import type { BuildOrderInput, FoodBuffer, MenuItem, OrderLine, PlanLine, VerifyResult } from "./types";
+import type { BuildOrderInput, DietaryGroupInput, FoodBuffer, MenuItem, OrderLine, PizzaPreference, PlanLine, VerifyResult } from "./types";
 
 const SLICES_PER_PERSON = 3;
 
@@ -13,9 +13,10 @@ const SLICES_PER_PERSON = 3;
  * compare a small, bounded number of valid candidates and hand back the
  * best one instead of just "whichever passed first."
  *
- * Priority order: 1) lower total cost, 2) fewer excess slices beyond the
- * required minimum, 3) a small preference for a plan that used a real
- * bundle/deal item, applied only when cost and waste are tied.
+ * With soft preferences: preference representation among GENERAL lines
+ * comes first, but only after candidates have passed every hard gate.
+ * Existing priority order then remains: 1) lower total cost, 2) fewer
+ * excess slices, 3) a small real-bundle tie-break.
  * ------------------------------------------------------------------- */
 
 export interface VerifiedCandidate {
@@ -25,12 +26,20 @@ export interface VerifiedCandidate {
 
 interface ScoredCandidate {
   candidate: VerifiedCandidate;
+  preferenceMatches: number;
+  preferenceSlices: number;
   totalCad: number;
   excessSlices: number;
   hasBundle: boolean;
 }
 
 function compareScored(a: ScoredCandidate, b: ScoredCandidate): number {
+  const preferenceMatchDiff = b.preferenceMatches - a.preferenceMatches;
+  if (preferenceMatchDiff !== 0) return preferenceMatchDiff;
+
+  const preferenceSliceDiff = b.preferenceSlices - a.preferenceSlices;
+  if (preferenceSliceDiff !== 0) return preferenceSliceDiff;
+
   const costDiff = a.totalCad - b.totalCad;
   if (Math.abs(costDiff) >= 0.005) return costDiff; // lower cost wins
 
@@ -41,18 +50,68 @@ function compareScored(a: ScoredCandidate, b: ScoredCandidate): number {
   return 0;
 }
 
+export interface PreferenceAlignment {
+  represented: PizzaPreference[];
+  matchingGeneralSlices: number;
+}
+
+/**
+ * Scores only lines that cannot be relied upon by any structured dietary
+ * group. This deliberately avoids inferring attendee overlap or trying to
+ * allocate shared dietary pizzas to unique people.
+ */
+export function scoreGeneralPreferenceAlignment(
+  lines: PlanLine[],
+  preferences: PizzaPreference[],
+  groups: DietaryGroupInput[]
+): PreferenceAlignment {
+  if (preferences.length === 0) return { represented: [], matchingGeneralSlices: 0 };
+
+  const structuredGroups = groups.filter((group) => group.restrictions.length > 0);
+  const represented = new Set<PizzaPreference>();
+  let matchingGeneralSlices = 0;
+
+  for (const line of lines) {
+    const item = MENU_BY_ID[line.itemId];
+    if (!item || line.quantity <= 0) continue;
+
+    const couldProvideDietaryCoverage = structuredGroups.some((group) =>
+      itemSatisfies(item.id, group.restrictions)
+    );
+    if (couldProvideDietaryCoverage) continue;
+
+    const lineMatches = preferences.filter((preference) =>
+      itemMatchesPizzaPreference(item.id, preference)
+    );
+    if (lineMatches.length === 0) continue;
+    for (const preference of lineMatches) represented.add(preference);
+    matchingGeneralSlices += item.slices * line.quantity;
+  }
+
+  return { represented: [...represented], matchingGeneralSlices };
+}
+
 /** Picks the best of a small set of already-verified candidates. Returns
  * null if none of the candidates were actually verified — scoring never
  * rescues an invalid plan. */
-export function pickBestVerifiedPlan(candidates: VerifiedCandidate[]): VerifiedCandidate | null {
+export function pickBestVerifiedPlan(
+  candidates: VerifiedCandidate[],
+  preferences: PizzaPreference[] = [],
+  groups: DietaryGroupInput[] = []
+): VerifiedCandidate | null {
   const scored: ScoredCandidate[] = candidates
     .filter((c) => c.verification.verified)
-    .map((c) => ({
-      candidate: c,
-      totalCad: c.verification.totals.totalCad,
-      excessSlices: Math.max(0, c.verification.totals.totalSlices - c.verification.totals.requiredSlices),
-      hasBundle: c.verification.bundlesUsed.length > 0,
-    }));
+    .map((c) => {
+      const alignment = scoreGeneralPreferenceAlignment(c.lines, preferences, groups);
+      return {
+        candidate: c,
+        preferenceMatches: alignment.represented.length,
+        preferenceSlices: alignment.matchingGeneralSlices,
+        totalCad: c.verification.totals.totalCad,
+        excessSlices: Math.max(0, c.verification.totals.totalSlices - c.verification.totals.requiredSlices),
+        hasBundle: c.verification.bundlesUsed.length > 0,
+      };
+    });
 
   if (scored.length === 0) return null;
   scored.sort(compareScored);

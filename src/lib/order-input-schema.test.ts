@@ -86,5 +86,42 @@ function check(name: string, condition: boolean) {
   check("schema accepts a group with exactly 1 person", validGroup.success === true);
 }
 
+// --- Scenario 3: pizza preferences are optional, bounded, and separate
+// from dietary restrictions.
+{
+  console.log("Scenario 3: optional pizza preference validation");
+  const validPreferences = OrderInputSchema.safeParse({
+    attendees: 12,
+    budget: 100,
+    storeId: "10088",
+    groups: [],
+    pizzaPreferences: ["cheese", "pepperoni", "veggie"],
+  });
+  check("schema accepts known pizza preferences", validPreferences.success === true);
+
+  const omittedPreferences = OrderInputSchema.safeParse({
+    attendees: 12,
+    budget: 100,
+    storeId: "10088",
+    groups: [],
+  });
+  check("preferences remain optional for backward compatibility", omittedPreferences.success === true);
+
+  const invalidPreference = OrderInputSchema.safeParse({
+    attendees: 12,
+    budget: 100,
+    storeId: "10088",
+    groups: [],
+    pizzaPreferences: ["anchovy-surprise"],
+  });
+  check("schema rejects unknown preference values", invalidPreference.success === false);
+  if (!invalidPreference.success) {
+    check(
+      "invalid preference gets a human-readable message",
+      describeValidationError(invalidPreference.error).toLowerCase().includes("pizza preference")
+    );
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

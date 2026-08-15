@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/.worktrees/
 
 # next.js
 /.next/
@@ -19,6 +20,8 @@
 
 # production
 /build
+/.eve/
+/.output/
 
 # misc
 .DS_Store

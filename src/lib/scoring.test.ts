@@ -1,5 +1,5 @@
 import { verifyPlan } from "./verify";
-import { pickBestVerifiedPlan, estimateMinimumWorkableBudget } from "./scoring";
+import { pickBestVerifiedPlan, estimateMinimumWorkableBudget, scoreGeneralPreferenceAlignment } from "./scoring";
 import type { VerifiedCandidate } from "./scoring";
 import type { BuildOrderInput, PlanLine, Restriction, VerifyResult } from "./types";
 
@@ -126,6 +126,64 @@ function check(name: string, condition: boolean) {
   };
   const estimate = estimateMinimumWorkableBudget(input);
   check("no workable estimate exists for an impossible dietary group", estimate === null);
+}
+
+// --- Scenario 6: preferences rank only already-verified candidates.
+{
+  console.log("Scenario 6: soft preference ranking never rescues an invalid plan");
+  const generousInput: BuildOrderInput = { attendees: 4, budget: 100, storeId: "10088", groups: [] };
+  const cheaperNonPreferred: PlanLine[] = [{ itemId: "classic-pepperoni-p37", quantity: 2 }];
+  const pricierPreferred: PlanLine[] = [{ itemId: "3-meat-treat-p2", quantity: 2 }];
+  const cheaperVerification = verifyPlan(cheaperNonPreferred, generousInput);
+  const preferredVerification = verifyPlan(pricierPreferred, generousInput);
+  const preferredBest = pickBestVerifiedPlan(
+    [
+      { lines: cheaperNonPreferred, verification: cheaperVerification },
+      { lines: pricierPreferred, verification: preferredVerification },
+    ],
+    ["meatHeavy"],
+    []
+  );
+  check("both candidates pass hard verification first", cheaperVerification.verified && preferredVerification.verified);
+  check("the represented preference can influence choice within the verified pool", preferredBest?.lines[0].itemId === "3-meat-treat-p2");
+
+  const tightInput: BuildOrderInput = { ...generousInput, budget: 24 };
+  const cheaperTight = verifyPlan(cheaperNonPreferred, tightInput);
+  const preferredTight = verifyPlan(pricierPreferred, tightInput);
+  const safeBest = pickBestVerifiedPlan(
+    [
+      { lines: pricierPreferred, verification: preferredTight },
+      { lines: cheaperNonPreferred, verification: cheaperTight },
+    ],
+    ["meatHeavy"],
+    []
+  );
+  check("the preferred plan is rejected by the hard budget gate", preferredTight.verified === false);
+  check("an invalid preferred plan can never beat a verified plan", safeBest?.lines[0].itemId === "classic-pepperoni-p37");
+}
+
+// --- Scenario 7: no attendee-overlap inference. Any line that could be
+// relied upon by a structured dietary group is excluded from preference
+// scoring in its entirety.
+{
+  console.log("Scenario 7: dietary-capable lines are protected from preference scoring");
+  const groups = [{ id: "g1", people: 2, restrictions: ["vegetarian"] as Restriction[] }];
+  const protectedCheese = scoreGeneralPreferenceAlignment(
+    [{ itemId: "classic-cheese-p38", quantity: 3 }],
+    ["cheese"],
+    groups
+  );
+  check("a cheese line that may carry vegetarian coverage earns no preference credit", protectedCheese.represented.length === 0 && protectedCheese.matchingGeneralSlices === 0);
+
+  const generalPepperoni = scoreGeneralPreferenceAlignment(
+    [
+      { itemId: "classic-cheese-p38", quantity: 1 },
+      { itemId: "classic-pepperoni-p37", quantity: 2 },
+    ],
+    ["pepperoni"],
+    groups
+  );
+  check("a line that cannot cover that dietary group may represent a general preference", generalPepperoni.represented.includes("pepperoni") && generalPepperoni.matchingGeneralSlices === 16);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

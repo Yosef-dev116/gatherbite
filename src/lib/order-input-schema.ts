@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ALL_RESTRICTIONS } from "./types";
+import { ALL_PIZZA_PREFERENCES, ALL_RESTRICTIONS } from "./types";
 
 /**
  * Zero dietary groups is valid (no `.min()` on the array) - "no dietary
@@ -21,6 +21,10 @@ export const OrderInputSchema = z.object({
       })
     )
     .max(10),
+  pizzaPreferences: z
+    .array(z.enum(ALL_PIZZA_PREFERENCES as [string, ...string[]]))
+    .max(ALL_PIZZA_PREFERENCES.length)
+    .optional(),
 });
 
 /**
@@ -44,6 +48,9 @@ export function describeValidationError(error: z.ZodError): string {
   }
   if (path.includes("restrictions")) {
     return "One of the dietary groups has an invalid restriction selected.";
+  }
+  if (path.includes("pizzaPreferences")) {
+    return "One of the selected pizza preferences is invalid.";
   }
   if (path === "groups") {
     return "You can have at most 10 dietary groups.";
