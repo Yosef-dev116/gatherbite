@@ -123,8 +123,10 @@ production environment.
 ## Known issue — Groq TPM cap blocks live Planner calls
 
 This is the single most important line item for anyone running the live
-demo. Quoting the exact numbers from the confirmed root cause (see the demo
-runbook, Section 3, for full detail):
+demo — but it is one of two independent blockers to a live APPROVE; see
+the second "Known issue" section below for the other. Quoting the exact
+numbers from the confirmed root cause (see the demo runbook, Section 3, for
+full detail):
 
 > The Planner's live-catalog prompt requires approximately **41,516 tokens**
 > per request. The connected Groq account is on the **on-demand/free tier,
@@ -156,6 +158,40 @@ runbook, Section 3, for full detail):
       was hit, if one exists, or around the honest "No verified option yet"
       behavior itself as evidence of the fail-closed design working as
       intended — never around a fabricated live run.
+
+## Known issue — production price evidence is always UNKNOWN, independent of the Groq TPM cap
+
+The Groq TPM cap above is not the only reason no candidate can ever reach
+APPROVE in this deployment. Even with unlimited Groq capacity, a second,
+structural blocker would surface immediately:
+
+> Every planning-path verification builds `priceEvidence` hardcoded to
+> `status: "UNKNOWN"` (`src/lib/gatherbite/agentLoop.ts`, lines 87-97).
+> `resolveDominosPriceEvidence` (`src/lib/restaurants/dominosServiceability.ts`)
+> is the only function that can ever produce `status: "KNOWN"`, and it is
+> never called from production code — confirmed by `grep -rn
+> "resolveDominosPriceEvidence" src/`, which finds it referenced only from
+> `src/lib/restaurants/dominosServiceability.test.ts`. Because price is
+> always `UNKNOWN`, `checkBudget` (`src/lib/restaurants/dominosEvidence.ts`)
+> always returns `ALL_IN_TOTAL_UNKNOWN`, and since budget is a hard
+> constraint, `verifierGuard.ts`'s APPROVE gate — which requires every check
+> to be `PASS` — can never pass.
+
+- [x] **This is not a bug.** It is the intentional, fail-closed consequence
+      of Task 2's finding that no proven candidate-bound official Domino's
+      quote mechanism exists. Budget is a hard constraint; GatherBite would
+      rather never approve than approve on a guessed price.
+- [ ] **Not currently fixable within this deployment's constraints:** wiring
+      a genuine candidate-bound quote source into production evidence
+      collection is design and review work with no time left before the
+      deadline — the same reasoning that keeps the Groq TPM workaround out of
+      scope above.
+- [ ] **Rollback-relevant:** the two blockers are independent. Resolving only
+      the Groq TPM cap would not, by itself, produce a working
+      reject→adapt→approve sequence — this price-evidence gap would still
+      block every APPROVE. Frame the live demo around the fail-closed
+      "No verified option yet" behavior itself, exactly as above, and do not
+      imply a Groq tier upgrade alone would unblock a live approval.
 
 ## Guided-fallback rollback note
 

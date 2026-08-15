@@ -193,6 +193,21 @@ production until real transfer capability is proven.
   `docs/demo/gatherbite-demo-runbook.md` and
   `docs/deployment/gatherbite-production-checklist.md` for the full detail
   and numbers.
+- **Known current limitation — production price evidence is always
+  UNKNOWN, independent of the Groq TPM cap above.** Every planning-path
+  verification builds `priceEvidence` hardcoded to `status: "UNKNOWN"`
+  (`src/lib/gatherbite/agentLoop.ts`, lines 87-97), because no proven
+  candidate-bound official Domino's quote mechanism exists (a deliberate
+  finding, not an oversight — see `docs/research/2026-08-14-dominos-cart-feasibility.md`).
+  `resolveDominosPriceEvidence`, the only function that can ever produce
+  `status: "KNOWN"`, is never called from production code. Because budget is
+  a hard constraint and price is always unknown, `checkBudget` always fails
+  with `ALL_IN_TOTAL_UNKNOWN`, so **no candidate can ever reach APPROVE in
+  this deployment even with unlimited Groq capacity** — this is the
+  fail-closed design working as intended, not a bug. The two limitations are
+  independent: resolving only the Groq TPM cap would not by itself produce a
+  working live approval. See `docs/demo/gatherbite-demo-runbook.md` and
+  `docs/deployment/gatherbite-production-checklist.md` for the full detail.
 
 ## The isolated Eve experiment
 

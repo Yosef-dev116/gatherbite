@@ -136,15 +136,42 @@ trace or an internal error. See
 `docs/deployment/gatherbite-production-checklist.md` for how this is framed
 as a known issue there too.
 
-## 4. What the rehearsal would look like once unblocked (expected, not yet observed)
+**A second, independent blocker: no candidate can ever reach APPROVE, even
+with unlimited Groq capacity.** The Groq TPM cap above is not the only
+reason the rehearsal cannot complete — raising it would surface a second,
+structural blocker immediately. In production, every planning-path
+verification builds `priceEvidence` hardcoded to `status: "UNKNOWN"`
+(`src/lib/gatherbite/agentLoop.ts`, lines 87-97: "Candidate expectedPricing
+is a proposal, never evidence. Task 9 has no official candidate-bound quote
+source, so budget must remain UNKNOWN."). `resolveDominosPriceEvidence`
+(`src/lib/restaurants/dominosServiceability.ts`) is the only function in this
+codebase that can ever produce `status: "KNOWN"`, and it is never called from
+any production code path — it is referenced only from
+`src/lib/restaurants/dominosServiceability.test.ts`. Because price evidence
+is always `UNKNOWN`, `checkBudget` (`src/lib/restaurants/dominosEvidence.ts`)
+always returns the `ALL_IN_TOTAL_UNKNOWN` finding, and because budget is a
+hard constraint, `verifierGuard.ts`'s APPROVE gate — which requires every
+check in the evidence bundle to be `PASS` (line 108: `if
+(Object.values(evidence.checks).some((check) => check.status !== "PASS"))`)
+— can never pass. This is not a bug: it is the honest, deliberate consequence
+of Task 2's finding that no proven candidate-bound official Domino's quote
+mechanism exists. But it means the TPM cap is not "the" blocker — it is one
+of two independent blockers, and resolving only the TPM cap would not, by
+itself, produce a working reject → adapt → approve sequence.
+
+## 4. What the rehearsal would look like if both blockers were resolved (expected, not yet observed)
 
 The following is the exact shape the five-run rehearsal is designed to
 produce, built from the real types in `src/lib/gatherbite/contracts.ts` and
 the real output format of `scripts/check-gatherbite-live.ts`. **No run below
 has actually happened.** This section exists so the mechanism can be
 verified by reading real code paths, and so a future session can recognize
-success the moment the Groq TPM constraint is lifted (higher tier, or a
-trimmed catalog payload).
+success once **both** blockers from Section 3 are lifted: the Groq TPM
+constraint (higher tier, or a trimmed catalog payload) **and** a proven
+candidate-bound official Domino's price-quote mechanism wired into
+production evidence collection (today, only the Groq TPM cap has any
+prospect of being "unblocked" — the missing quote source has no known path
+to resolution and would need its own design and review cycle).
 
 A successful run's public event stream (`PublicGatherBiteEvent[]`, exactly
 as defined in `contracts.ts`) would look like:
@@ -183,9 +210,15 @@ candidates and at most one adapted candidate (`adaptationUsed` in
 one APPROVE) is the maximum-length real trajectory, not an arbitrary
 example.
 
-**To re-attempt this rehearsal in a future session:** confirm the Groq
-account's TPM cap (via a real Dev Tier upgrade or a proven lower-token
-catalog serialization change reviewed on its own), then run
+**To re-attempt this rehearsal in a future session:** both Section 3 blockers
+must be resolved first, not just one. (1) Raise the Groq account's TPM cap
+(via a real Dev Tier upgrade or a proven lower-token catalog serialization
+change reviewed on its own), **and** (2) wire a proven candidate-bound
+official Domino's price-quote mechanism into production evidence collection
+so `checkBudget` can return something other than `ALL_IN_TOTAL_UNKNOWN` (this
+requires design and review work beyond this deployment — there is no
+existing production code path that produces `KNOWN` price evidence today).
+Only after both are true, run
 `npm run test:live -- --url=https://gatherbite-hackathon-final.vercel.app`
 five consecutive times against the deployed app and record each run's actual
 `decision sequence` output here, replacing this section with real data.
@@ -214,8 +247,9 @@ component) renders this as a calm, dedicated card — not an error page:
 followed by a "Safe adjustments to try" list (raise the budget, try
 Carryout/Either, try again later, dietary needs are never weakened
 automatically). This is exactly what a judge sees right now on the deployed
-app for the example request in Section 1, because of the TPM blocker in
-Section 3.
+app for the example request in Section 1, because of the two blockers in
+Section 3 (the Groq TPM cap, and the always-`UNKNOWN` production price
+evidence).
 
 ## 6. Cart mode currently in effect
 
@@ -330,7 +364,9 @@ instead of silently passing it.
 blank state. `recommended: null` renders the dedicated "No verified option
 yet" card with the exact `noViableReason` string and a concrete "safe
 adjustments" list (Section 5). This is what the live deployment currently
-shows for the example request, because of the Groq TPM blocker (Section 3).
+shows for the example request, because of the two independent blockers in
+Section 3 (the Groq TPM cap, and the always-`UNKNOWN` production price
+evidence — either alone would be enough to prevent an APPROVE).
 
 **Bounded retries (Planner's adaptation limit).** The Planner may propose at
 most two initial version-1 candidates and, only after a structured REJECT
