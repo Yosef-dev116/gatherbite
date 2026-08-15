@@ -40,12 +40,21 @@ export class InvalidCartCandidateError extends Error {
   }
 }
 
+// Mirrors orchestrator.ts's own DEFAULT_DEADLINE_MS pattern (that constant is
+// not exported, so this is a clearly-named sibling rather than a shared
+// import): prepareSelectedDominosCart awaits a live-data refresh plus up to
+// two Groq-backed Verifier calls, and previously had no bound of its own
+// beyond whatever signal the caller happened to supply.
+const DEFAULT_CART_DEADLINE_MS = 15_000;
+
 export interface PrepareCartDependencies {
   refreshObservation: (input: GatherBiteInput) => Promise<DominosObservationContext>;
   verifyCandidate: typeof runDominosVerifier;
   executor: DominosCartExecutor;
   compareCart: typeof compareDominosCart;
   verifyActualCart: typeof runDominosVerifier;
+  /** Overridable only for tests; production uses DEFAULT_CART_DEADLINE_MS. */
+  deadlineMs?: number;
 }
 
 export type CartEventSink = (event: {
@@ -206,6 +215,7 @@ export async function prepareSelectedDominosCart(
   input: GatherBiteInput,
   deps: PrepareCartDependencies,
   onEvent?: CartEventSink,
+  externalSignal?: AbortSignal,
 ): Promise<CartPreparationResult> {
   const emit = (type: "cart-stage" | "cart-blocked" | "cart-complete", message: string): void => {
     onEvent?.({ type, message });
@@ -223,6 +233,34 @@ export async function prepareSelectedDominosCart(
   const expectedCandidate: DominosCandidate = parsedCandidate.data;
   const fallback = buildGuidedHandoff(expectedCandidate);
 
+  // Bounded-deadline pattern mirroring orchestrator.ts's evaluateGatherBite:
+  // an internal AbortController, combined with the caller's own signal (if
+  // any), so either the caller's cancellation or this function's own
+  // timeout can abort the live-data refresh and Verifier calls below.
+  const controller = new AbortController();
+  let rejectCancellation!: (reason: Error) => void;
+  const cancellation = new Promise<never>((_resolve, reject) => { rejectCancellation = reject; });
+  const abortForCart = (error: Error) => {
+    rejectCancellation(error);
+    if (!controller.signal.aborted) controller.abort(error);
+  };
+  const externalAbort = () => abortForCart(
+    Object.assign(new Error("Cart preparation was cancelled."), { name: "AbortError" }),
+  );
+  if (externalSignal?.aborted) externalAbort();
+  else externalSignal?.addEventListener("abort", externalAbort, { once: true });
+  const timeout = setTimeout(() => {
+    abortForCart(Object.assign(new Error("Cart preparation deadline exceeded."), { name: "AbortError" }));
+  }, deps.deadlineMs ?? DEFAULT_CART_DEADLINE_MS);
+  // A raced-out promise may still settle later; swallow that later rejection
+  // so it never surfaces as an unhandled rejection.
+  void cancellation.catch(() => undefined);
+
+  function withDeadline<T>(promise: Promise<T>): Promise<T> {
+    void promise.catch(() => undefined);
+    return Promise.race([promise, cancellation]);
+  }
+
   function blocked(
     status: Exclude<CartPreparationStatus, "PREPARED_AND_VERIFIED">,
     reason: string,
@@ -239,121 +277,147 @@ export async function prepareSelectedDominosCart(
     };
   }
 
-  emit("cart-stage", "Checking your selection against live Domino's data.");
-  let preObservation: DominosObservationContext;
   try {
-    preObservation = await deps.refreshObservation(input);
-  } catch {
-    return blocked("AUTOMATION_UNAVAILABLE", "Live Domino's data could not be refreshed for this selection.");
+    emit("cart-stage", "Checking your selection against live Domino's data.");
+    let preObservation: DominosObservationContext;
+    try {
+      preObservation = await withDeadline(deps.refreshObservation(input));
+    } catch {
+      return blocked("AUTOMATION_UNAVAILABLE", "Live Domino's data could not be refreshed for this selection.");
+    }
+
+    // The candidate arrived bound to an evaluation-time snapshot; the
+    // observation above is a brand-new fetch with its own fresh timestamp, so
+    // the two can never share a snapshotVersion. Rebind the (content-unchanged)
+    // candidate to this refreshed observation before verifying — otherwise
+    // candidateMatchesObservation fails closed on every real request and
+    // deps.verifyCandidate is never actually reached.
+    const reboundCandidate = rebindCandidateToObservation(expectedCandidate, preObservation);
+    if (!reboundCandidate) {
+      return blocked(
+        "FALLBACK_READY",
+        "The selected store or one of its menu items is no longer available in the live Domino's data.",
+      );
+    }
+
+    emit("cart-stage", "Independent verification is checking your selection.");
+    let preVerify: Awaited<ReturnType<typeof verifyObservedDominosCandidate>>;
+    try {
+      preVerify = await withDeadline(verifyObservedDominosCandidate({
+        input,
+        candidate: reboundCandidate,
+        observation: preObservation,
+        verifierModel: VERIFIER_MODEL,
+        verifyCandidate: deps.verifyCandidate,
+        abortSignal: controller.signal,
+      }));
+    } catch {
+      return blocked("AUTOMATION_UNAVAILABLE", "Independent verification did not complete before the preparation deadline.");
+    }
+
+    if (preVerify.status !== "DECIDED" || preVerify.decision.decision !== "APPROVE") {
+      const reason = preVerify.status === "DECIDED"
+        ? (preVerify.decision.reasons[0] ?? "The selection could not be independently approved.")
+        : preVerify.reason;
+      return blocked("FALLBACK_READY", reason);
+    }
+
+    // Downstream (execution, comparison, observed-cart conversion) continues
+    // to use the original expectedCandidate, not reboundCandidate: rebinding
+    // only ever changes snapshotVersion bookkeeping, never the approved
+    // configuration content, so both refer to the identical approved order.
+    emit("cart-stage", "Building the official Domino's cart.");
+    let executionResult: CartPreparationResult;
+    try {
+      executionResult = await withDeadline(deps.executor.prepare({ candidate: expectedCandidate, organizerInput: input }));
+    } catch {
+      return blocked("AUTOMATION_UNAVAILABLE", "The cart executor did not complete before the preparation deadline.");
+    }
+
+    if (!EXECUTOR_RESULT_STATUSES.has(executionResult.status)) {
+      // Defense in depth: only this function may ever declare
+      // PREPARED_AND_VERIFIED. An executor that claims it (or any other status
+      // this function doesn't expect) is treated as a contract violation, not
+      // forwarded to the caller.
+      return blocked("AUTOMATION_UNAVAILABLE", "The cart executor returned an unexpected status.");
+    }
+
+    if (executionResult.status !== "PREPARED_AND_OBSERVED" || !executionResult.actualCart) {
+      emit("cart-blocked", executionResult.reason ?? "The official cart could not be prepared.");
+      return executionResult;
+    }
+
+    emit("cart-stage", "Comparing the prepared cart against your approved selection.");
+    const actualCart = executionResult.actualCart;
+    const comparison = deps.compareCart(expectedCandidate, actualCart);
+    if (!comparison.matches) {
+      return blocked(
+        "CART_MISMATCH",
+        "The prepared cart did not match your approved selection.",
+        { actualCart, comparison },
+      );
+    }
+
+    emit("cart-stage", "Re-checking live data before final verification.");
+    let postObservation: DominosObservationContext;
+    try {
+      postObservation = await withDeadline(deps.refreshObservation(input));
+    } catch {
+      return blocked(
+        "AUTOMATION_UNAVAILABLE",
+        "Live Domino's data could not be refreshed after preparing the cart.",
+        { actualCart, comparison },
+      );
+    }
+
+    const observedCandidate = buildObservedCandidate(expectedCandidate, actualCart, postObservation);
+    if (!observedCandidate) {
+      return blocked(
+        "CART_MISMATCH",
+        "The prepared cart is missing evidence GatherBite needs to verify it safely.",
+        { actualCart, comparison },
+      );
+    }
+
+    emit("cart-stage", "Independent verification is checking the prepared cart.");
+    let postVerify: Awaited<ReturnType<typeof verifyObservedDominosCandidate>>;
+    try {
+      postVerify = await withDeadline(verifyObservedDominosCandidate({
+        input,
+        candidate: observedCandidate,
+        observation: postObservation,
+        verifierModel: VERIFIER_MODEL,
+        verifyCandidate: deps.verifyActualCart,
+        abortSignal: controller.signal,
+      }));
+    } catch {
+      return blocked(
+        "AUTOMATION_UNAVAILABLE",
+        "Independent verification of the prepared cart did not complete before the preparation deadline.",
+        { actualCart, comparison },
+      );
+    }
+
+    if (postVerify.status !== "DECIDED" || postVerify.decision.decision !== "APPROVE") {
+      const reason = postVerify.status === "DECIDED"
+        ? (postVerify.decision.reasons[0] ?? "The prepared cart could not be independently approved.")
+        : postVerify.reason;
+      return blocked("FALLBACK_READY", reason, { actualCart, comparison });
+    }
+
+    emit("cart-complete", "The official cart was prepared and independently verified.");
+    return {
+      status: "PREPARED_AND_VERIFIED",
+      actualCart,
+      comparison,
+      handoffUrl: executionResult.handoffUrl,
+      fallback,
+      reason: null,
+    };
+  } finally {
+    clearTimeout(timeout);
+    externalSignal?.removeEventListener("abort", externalAbort);
   }
-
-  // The candidate arrived bound to an evaluation-time snapshot; the
-  // observation above is a brand-new fetch with its own fresh timestamp, so
-  // the two can never share a snapshotVersion. Rebind the (content-unchanged)
-  // candidate to this refreshed observation before verifying — otherwise
-  // candidateMatchesObservation fails closed on every real request and
-  // deps.verifyCandidate is never actually reached.
-  const reboundCandidate = rebindCandidateToObservation(expectedCandidate, preObservation);
-  if (!reboundCandidate) {
-    return blocked(
-      "FALLBACK_READY",
-      "The selected store or one of its menu items is no longer available in the live Domino's data.",
-    );
-  }
-
-  emit("cart-stage", "Independent verification is checking your selection.");
-  const preVerify = await verifyObservedDominosCandidate({
-    input,
-    candidate: reboundCandidate,
-    observation: preObservation,
-    verifierModel: VERIFIER_MODEL,
-    verifyCandidate: deps.verifyCandidate,
-  });
-
-  if (preVerify.status !== "DECIDED" || preVerify.decision.decision !== "APPROVE") {
-    const reason = preVerify.status === "DECIDED"
-      ? (preVerify.decision.reasons[0] ?? "The selection could not be independently approved.")
-      : preVerify.reason;
-    return blocked("FALLBACK_READY", reason);
-  }
-
-  // Downstream (execution, comparison, observed-cart conversion) continues
-  // to use the original expectedCandidate, not reboundCandidate: rebinding
-  // only ever changes snapshotVersion bookkeeping, never the approved
-  // configuration content, so both refer to the identical approved order.
-  emit("cart-stage", "Building the official Domino's cart.");
-  const executionResult = await deps.executor.prepare({ candidate: expectedCandidate, organizerInput: input });
-
-  if (!EXECUTOR_RESULT_STATUSES.has(executionResult.status)) {
-    // Defense in depth: only this function may ever declare
-    // PREPARED_AND_VERIFIED. An executor that claims it (or any other status
-    // this function doesn't expect) is treated as a contract violation, not
-    // forwarded to the caller.
-    return blocked("AUTOMATION_UNAVAILABLE", "The cart executor returned an unexpected status.");
-  }
-
-  if (executionResult.status !== "PREPARED_AND_OBSERVED" || !executionResult.actualCart) {
-    emit("cart-blocked", executionResult.reason ?? "The official cart could not be prepared.");
-    return executionResult;
-  }
-
-  emit("cart-stage", "Comparing the prepared cart against your approved selection.");
-  const actualCart = executionResult.actualCart;
-  const comparison = deps.compareCart(expectedCandidate, actualCart);
-  if (!comparison.matches) {
-    return blocked(
-      "CART_MISMATCH",
-      "The prepared cart did not match your approved selection.",
-      { actualCart, comparison },
-    );
-  }
-
-  emit("cart-stage", "Re-checking live data before final verification.");
-  let postObservation: DominosObservationContext;
-  try {
-    postObservation = await deps.refreshObservation(input);
-  } catch {
-    return blocked(
-      "AUTOMATION_UNAVAILABLE",
-      "Live Domino's data could not be refreshed after preparing the cart.",
-      { actualCart, comparison },
-    );
-  }
-
-  const observedCandidate = buildObservedCandidate(expectedCandidate, actualCart, postObservation);
-  if (!observedCandidate) {
-    return blocked(
-      "CART_MISMATCH",
-      "The prepared cart is missing evidence GatherBite needs to verify it safely.",
-      { actualCart, comparison },
-    );
-  }
-
-  emit("cart-stage", "Independent verification is checking the prepared cart.");
-  const postVerify = await verifyObservedDominosCandidate({
-    input,
-    candidate: observedCandidate,
-    observation: postObservation,
-    verifierModel: VERIFIER_MODEL,
-    verifyCandidate: deps.verifyActualCart,
-  });
-
-  if (postVerify.status !== "DECIDED" || postVerify.decision.decision !== "APPROVE") {
-    const reason = postVerify.status === "DECIDED"
-      ? (postVerify.decision.reasons[0] ?? "The prepared cart could not be independently approved.")
-      : postVerify.reason;
-    return blocked("FALLBACK_READY", reason, { actualCart, comparison });
-  }
-
-  emit("cart-complete", "The official cart was prepared and independently verified.");
-  return {
-    status: "PREPARED_AND_VERIFIED",
-    actualCart,
-    comparison,
-    handoffUrl: executionResult.handoffUrl,
-    fallback,
-    reason: null,
-  };
 }
 
 /**

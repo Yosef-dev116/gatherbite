@@ -616,6 +616,57 @@ test("a failed live-data refresh before verification blocks without ever calling
   assert.deepEqual(result.fallback, buildGuidedHandoff(expected));
 });
 
+test("a Verifier call that never resolves is aborted after the internal deadline instead of hanging forever (Task 19 Fix 4, Part A)", { timeout: 2_000 }, async () => {
+  const expected = candidate();
+  let verifyCandidateCalls = 0;
+  let receivedAbortSignal: AbortSignal | undefined;
+  const deps: PrepareCartDependencies = {
+    refreshObservation: async () => observationFrom(snapshot(FETCHED_AT)),
+    verifyCandidate: (async (_verifyInput, verifyDeps) => {
+      verifyCandidateCalls += 1;
+      receivedAbortSignal = verifyDeps?.abortSignal;
+      // Simulate a hung Groq call: this promise never resolves on its own.
+      return new Promise(() => {});
+    }) as PrepareCartDependencies["verifyCandidate"],
+    executor: fakeExecutor(async () => { throw new Error("executor.prepare must never run after a deadline-bound REJECT"); }),
+    compareCart: compareDominosCart,
+    verifyActualCart: (async () => new Promise(() => {})) as PrepareCartDependencies["verifyActualCart"],
+    // A short test-only deadline override, matching orchestrator.test.ts's
+    // own `deadlineMs` override pattern for its deadline test.
+    deadlineMs: 20,
+  };
+
+  const result = await prepareSelectedDominosCart(expected, organizerInput(), deps);
+
+  assert.equal(verifyCandidateCalls, 1);
+  assert.notEqual(result.status, "PREPARED_AND_VERIFIED");
+  assert.ok(receivedAbortSignal, "the internal deadline controller's signal must reach the Verifier call");
+  assert.equal(receivedAbortSignal?.aborted, true);
+});
+
+test("an external caller signal aborts cart preparation even before the internal deadline elapses (Task 19 Fix 4, Part A)", { timeout: 2_000 }, async () => {
+  const expected = candidate();
+  const externalController = new AbortController();
+  let receivedAbortSignal: AbortSignal | undefined;
+  const deps: PrepareCartDependencies = {
+    refreshObservation: async () => observationFrom(snapshot(FETCHED_AT)),
+    verifyCandidate: (async (_verifyInput, verifyDeps) => {
+      receivedAbortSignal = verifyDeps?.abortSignal;
+      externalController.abort();
+      return new Promise(() => {});
+    }) as PrepareCartDependencies["verifyCandidate"],
+    executor: fakeExecutor(async () => { throw new Error("must not run"); }),
+    compareCart: compareDominosCart,
+    verifyActualCart: (async () => new Promise(() => {})) as PrepareCartDependencies["verifyActualCart"],
+    deadlineMs: 60_000,
+  };
+
+  const result = await prepareSelectedDominosCart(expected, organizerInput(), deps, undefined, externalController.signal);
+
+  assert.notEqual(result.status, "PREPARED_AND_VERIFIED");
+  assert.equal(receivedAbortSignal?.aborted, true);
+});
+
 test("the observed-cart candidate carries an incremented candidateVersion and the refreshed snapshot binding", async () => {
   const expected = candidate();
   let capturedObservedCandidate: DominosCandidate | null = null;

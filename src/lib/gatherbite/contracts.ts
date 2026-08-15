@@ -116,6 +116,14 @@ export interface CandidatePizza {
   trustedSlicesPerPizza: number;
 }
 
+// Mirrors src/lib/restaurants/dominosEvidence.ts's MAX_PIZZA_LINES (candidate
+// pizza-line bound). Kept as a literal here (not imported) to avoid a
+// schema-module -> evidence-module dependency; the two must stay numerically
+// in sync as a matter of code review, not a shared import.
+const MAX_CANDIDATE_PIZZA_LINES = 100;
+const MAX_TOPPINGS_PER_CANDIDATE_LINE = 10;
+const MAX_CANDIDATE_DEAL_CODES = 200;
+
 export const CandidatePizzaSchema = z.object({
   lineId: z.string().min(1),
   quantity: z.number().int().min(1),
@@ -125,7 +133,7 @@ export const CandidatePizzaSchema = z.object({
   crustCode: z.string().min(1),
   sauceCode: z.string().min(1).nullable(),
   cheeseCode: z.string().min(1).nullable(),
-  toppings: z.array(z.object({ code: z.string().min(1), quantity: z.number().int().min(1) })),
+  toppings: z.array(z.object({ code: z.string().min(1), quantity: z.number().int().min(1) })).max(MAX_TOPPINGS_PER_CANDIDATE_LINE),
   purpose: z.enum(["dietary-protected", "general"]),
   protectsGroupIds: z.array(z.string().min(1)),
   trustedSlicesPerPizza: z.number().int().positive(),
@@ -153,8 +161,8 @@ export const DominosCandidateSchema = z.object({
   snapshotVersion: z.string().min(1),
   storeId: z.string().min(1),
   serviceMethod: z.enum(["delivery", "carryout"]),
-  dealCodes: z.array(z.string().min(1)),
-  pizzas: z.array(CandidatePizzaSchema).min(1),
+  dealCodes: z.array(z.string().min(1)).max(MAX_CANDIDATE_DEAL_CODES),
+  pizzas: z.array(CandidatePizzaSchema).min(1).max(MAX_CANDIDATE_PIZZA_LINES),
   expectedPricing: z.object({
     subtotalCad: z.number().nonnegative().nullable(),
     taxCad: z.number().nonnegative().nullable(),

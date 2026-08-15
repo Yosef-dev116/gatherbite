@@ -19,6 +19,7 @@ export type PrepareCartRouteHandler = (
   input: ReturnType<typeof GatherBiteInputSchema.parse>,
   deps: PrepareCartDependencies,
   onEvent?: CartEventSink,
+  externalSignal?: AbortSignal,
 ) => Promise<CartPreparationResult>;
 
 function validationMessage(error: ZodError): string {
@@ -39,11 +40,12 @@ function validationMessage(error: ZodError): string {
  * turns it into a public 400, the same way the existing GatherBite routes
  * turn a Zod validation failure into one.
  */
-const defaultPrepare: PrepareCartRouteHandler = (candidateInput, input, deps, onEvent) => prepareSelectedDominosCart(
+const defaultPrepare: PrepareCartRouteHandler = (candidateInput, input, deps, onEvent, externalSignal) => prepareSelectedDominosCart(
   candidateInput,
   input,
   deps,
   onEvent,
+  externalSignal,
 );
 
 export function createCartPreparePostHandler(prepare: PrepareCartRouteHandler = defaultPrepare) {
@@ -77,7 +79,7 @@ export function createCartPreparePostHandler(prepare: PrepareCartRouteHandler = 
     };
 
     try {
-      const result = await prepare(record.candidate, parsedInput.data, deps, onEvent);
+      const result = await prepare(record.candidate, parsedInput.data, deps, onEvent, request.signal);
       return Response.json(
         { events, result },
         { status: 200, headers: { "Cache-Control": "no-store" } },
