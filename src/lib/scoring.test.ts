@@ -1,5 +1,5 @@
 import { verifyPlan } from "./verify";
-import { pickBestVerifiedPlan, estimateMinimumWorkableBudget, scoreGeneralPreferenceAlignment } from "./scoring";
+import { computeFoodBuffer, pickBestVerifiedPlan, estimateMinimumWorkableBudget, scoreGeneralPreferenceAlignment } from "./scoring";
 import type { VerifiedCandidate } from "./scoring";
 import type { BuildOrderInput, PlanLine, Restriction, VerifyResult } from "./types";
 
@@ -184,6 +184,41 @@ function check(name: string, condition: boolean) {
     groups
   );
   check("a line that cannot cover that dietary group may represent a general preference", generalPepperoni.represented.includes("pepperoni") && generalPepperoni.matchingGeneralSlices === 16);
+}
+
+// --- Scenario 8: dietary group counts describe restrictions, not unique
+// attendees. A buffer can only be suggested when one real item satisfies
+// every group's restrictions; it must never infer a general pool by
+// subtracting the overlapping group counts from attendees.
+{
+  console.log("Scenario 8: overlapping dietary groups never create inferred unrestricted attendees");
+  const verification: VerifyResult = {
+    verified: true,
+    failures: [],
+    totals: {
+      totalSlices: 12,
+      requiredSlices: 12,
+      subtotalCad: 20,
+      feesCad: 5,
+      totalCad: 25,
+      budgetCad: 100,
+      remainingBudgetCad: 75,
+    },
+    groupCoverage: [],
+    bundlesUsed: [],
+  };
+  const buffer = computeFoodBuffer(
+    {
+      attendees: 4,
+      budget: 100,
+      groups: [
+        { id: "vegan", people: 4, restrictions: ["vegan"] },
+        { id: "vegetarian", people: 4, restrictions: ["vegetarian"] },
+      ],
+    },
+    verification
+  );
+  check("overlapping dietary groups do not imply negative or unrestricted attendees", buffer.extraItem === null);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -1,0 +1,4 @@
+// Single entry point for final GatherBite contract tests as the feature
+// grows. Importing registers each node:test suite without hiding it from
+// the normal test runner.
+import "./gatherbite/contracts.test";

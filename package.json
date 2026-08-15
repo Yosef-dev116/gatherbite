@@ -20,7 +20,8 @@
     "test:dominos": "tsx src/lib/restaurants/dominos.test.ts",
     "test:dominos-dietary": "tsx src/lib/restaurants/dominosDietary.test.ts",
     "test:gatherbite": "tsx src/lib/gatherbite.test.ts",
-    "test": "npm run test:verify && npm run test:scoring && npm run test:input && npm run test:buffer && npm run test:add-buffer && npm run test:restrictions && npm run test:dominos && npm run test:dominos-dietary && npm run test:gatherbite"
+    "test:gatherbite-final": "tsx --test src/lib/gatherbite-final.test.ts",
+    "test": "npm run test:verify && npm run test:scoring && npm run test:input && npm run test:buffer && npm run test:add-buffer && npm run test:restrictions && npm run test:dominos && npm run test:dominos-dietary && npm run test:gatherbite && npm run test:gatherbite-final"
   },
   "dependencies": {
     "@ai-sdk/groq": "^4.0.28",

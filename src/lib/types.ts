@@ -49,7 +49,7 @@ export const PIZZA_PREFERENCE_LABELS: Record<PizzaPreference, string> = {
   cheese: "Cheese",
   pepperoni: "Pepperoni",
   veggie: "Veggie",
-  meatHeavy: "Meat-heavy",
+  meatHeavy: "Meat lovers",
 };
 
 export interface DietaryGroupInput {

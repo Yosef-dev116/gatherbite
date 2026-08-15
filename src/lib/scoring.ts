@@ -225,15 +225,15 @@ export function computeFoodBuffer(
   };
   if (!isSmallBuffer) return empty;
 
-  // Respect existing dietary requirements where relevant: if everyone
-  // present belongs to a dietary group (no unrestricted attendees), a
-  // generic pizza would be a useless buffer, so pick one that's actually
-  // safe for at least one of the groups present instead.
-  const groupPeopleSum = input.groups.reduce((sum, g) => sum + g.people, 0);
-  const hasUnrestrictedAttendees = input.attendees - groupPeopleSum > 0;
-  const pool = hasUnrestrictedAttendees
+  // Group counts are restriction descriptions, not attendee identities:
+  // their totals may overlap and must never be subtracted from attendees.
+  // With any structured dietary group present, a safe buffer must satisfy
+  // every group's restrictions. If no one real item can do that, omit the
+  // suggestion rather than pretending a general/unrestricted pool exists.
+  const structuredGroups = input.groups.filter((group) => group.restrictions.length > 0);
+  const pool = structuredGroups.length === 0
     ? MENU_ITEMS
-    : MENU_ITEMS.filter((item) => input.groups.some((g) => itemSatisfies(item.id, g.restrictions)));
+    : MENU_ITEMS.filter((item) => structuredGroups.every((group) => itemSatisfies(item.id, group.restrictions)));
 
   if (pool.length === 0) return empty; // defensive: no eligible real item to suggest
 
