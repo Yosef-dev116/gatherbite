@@ -7,6 +7,8 @@ import {
   resolveDominosPriceEvidence,
 } from "./dominosServiceability";
 
+const CANDIDATE_BINDING = "candidate-manifest:test";
+
 const address: DeliveryAddress = {
   street: "1 Great George St",
   city: "Charlottetown",
@@ -73,6 +75,7 @@ test("delivery or either without an address stays UNKNOWN and never invokes look
 test("a complete official live quote outranks a possible tax calculation", () => {
   const evidence = resolveDominosPriceEvidence({
     observedAt: "2026-08-15T03:14:17.698Z",
+    candidateBinding: CANDIDATE_BINDING,
     liveQuote: {
       subtotalCad: 100,
       taxCad: 15,
@@ -92,9 +95,26 @@ test("a complete official live quote outranks a possible tax calculation", () =>
   assert.equal(evidence.totalCad, 121);
 });
 
+test("a live quote must reconcile exactly in integer cents", () => {
+  const evidence = resolveDominosPriceEvidence({
+    observedAt: "2026-08-15T03:14:17.698Z",
+    candidateBinding: CANDIDATE_BINDING,
+    liveQuote: {
+      subtotalCad: 14.99,
+      taxCad: 2.25,
+      feesCad: 0,
+      totalCad: 17.23,
+      source: "Domino's official price-order response",
+    },
+  });
+
+  assert.equal(evidence.status, "UNKNOWN");
+});
+
 test("trusted PEI calculation requires every fee amount and taxability", () => {
   const known = resolveDominosPriceEvidence({
     observedAt: "2026-08-15T03:14:17.698Z",
+    candidateBinding: CANDIDATE_BINDING,
     calculation: {
       subtotalCad: 100,
       fees: [
@@ -113,10 +133,12 @@ test("trusted PEI calculation requires every fee amount and taxability", () => {
     totalCad: 122.75,
     source: "https://www.princeedwardisland.ca/en/information/finance/harmonized-sales-tax-hst",
     observedAt: "2026-08-15T03:14:17.698Z",
+    candidateBinding: CANDIDATE_BINDING,
   });
 
   const unknownAmount = resolveDominosPriceEvidence({
     observedAt: "2026-08-15T03:14:17.698Z",
+    candidateBinding: CANDIDATE_BINDING,
     calculation: {
       subtotalCad: 100,
       fees: [{ amountCad: null, taxable: true }],
@@ -128,6 +150,7 @@ test("trusted PEI calculation requires every fee amount and taxability", () => {
 
   const unknownTaxability = resolveDominosPriceEvidence({
     observedAt: "2026-08-15T03:14:17.698Z",
+    candidateBinding: CANDIDATE_BINDING,
     calculation: {
       subtotalCad: 100,
       fees: [{ amountCad: 5, taxable: null }],
@@ -138,6 +161,7 @@ test("trusted PEI calculation requires every fee amount and taxability", () => {
 
   const unknownRequiredFee = resolveDominosPriceEvidence({
     observedAt: "2026-08-15T03:14:17.698Z",
+    candidateBinding: CANDIDATE_BINDING,
     calculation: { subtotalCad: 100, fees: [], allRequiredFeesKnown: false },
   });
   assert.equal(unknownRequiredFee.status, "UNKNOWN");

@@ -1,4 +1,4 @@
-import type { DeliveryAddress } from "../gatherbite/contracts";
+import type { DeliveryAddress, DominosCandidate } from "../gatherbite/contracts";
 import { calculatePeiHst, PEI_HST_SOURCE } from "../pricing/peiTax";
 
 export type ServiceMethod = "delivery" | "carryout" | "either";
@@ -104,6 +104,8 @@ export type DominosPriceEvidence =
       totalCad: number;
       source: string;
       observedAt: string;
+      /** Exact, deterministic binding to the candidate manifest this price covers. */
+      candidateBinding: string;
     }
   | {
       status: "UNKNOWN";
@@ -137,28 +139,69 @@ export interface DominosTrustedPriceCalculation {
   allRequiredFeesKnown: boolean;
 }
 
+/**
+ * Builds a collision-free structural string for the exact candidate facts a
+ * quote/calculation priced. Expected price fields are intentionally excluded:
+ * they are compared independently against the returned price evidence.
+ */
+export function createDominosCandidatePriceBinding(candidate: DominosCandidate): string {
+  return `dominos-candidate-price-v1:${JSON.stringify({
+    candidateId: candidate.candidateId,
+    candidateVersion: candidate.candidateVersion,
+    snapshotVersion: candidate.snapshotVersion,
+    storeId: candidate.storeId,
+    serviceMethod: candidate.serviceMethod,
+    dealCodes: candidate.dealCodes,
+    pizzas: candidate.pizzas.map((pizza) => ({
+      lineId: pizza.lineId,
+      quantity: pizza.quantity,
+      productCode: pizza.productCode,
+      variantCode: pizza.variantCode,
+      sizeCode: pizza.sizeCode,
+      crustCode: pizza.crustCode,
+      sauceCode: pizza.sauceCode,
+      cheeseCode: pizza.cheeseCode,
+      toppings: pizza.toppings.map((topping) => ({ code: topping.code, quantity: topping.quantity })),
+      purpose: pizza.purpose,
+      protectsGroupIds: pizza.protectsGroupIds,
+      trustedSlicesPerPizza: pizza.trustedSlicesPerPizza,
+    })),
+  })}`;
+}
+
 function roundCad(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+function cadCents(value: number | null): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return null;
+  const scaled = value * 100;
+  const rounded = Math.round(scaled);
+  if (!Number.isSafeInteger(rounded) || Math.abs(scaled - rounded) > 1e-7) return null;
+  return rounded;
+}
+
 function validCad(value: number | null): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+  return cadCents(value) !== null;
 }
 
 function completeLiveQuote(quote: DominosLiveQuote | undefined): boolean {
   if (!quote) return false;
   const values = [quote.subtotalCad, quote.taxCad, quote.feesCad, quote.totalCad];
   if (!values.every(validCad)) return false;
-  return Math.abs(roundCad(quote.subtotalCad + quote.taxCad + quote.feesCad) - quote.totalCad) < 0.01;
+  return cadCents(quote.subtotalCad)! + cadCents(quote.taxCad)! + cadCents(quote.feesCad)!
+    === cadCents(quote.totalCad);
 }
 
 export function resolveDominosPriceEvidence(input: {
   observedAt: string;
+  candidateBinding: string;
   liveQuote?: DominosLiveQuote;
   calculation?: DominosTrustedPriceCalculation;
 }): DominosPriceEvidence {
+  const candidateBinding = input.candidateBinding.trim();
   const liveQuote = input.liveQuote;
-  if (liveQuote && completeLiveQuote(liveQuote)) {
+  if (candidateBinding && liveQuote && completeLiveQuote(liveQuote)) {
     return {
       status: "KNOWN",
       kind: "LIVE_QUOTE",
@@ -168,13 +211,14 @@ export function resolveDominosPriceEvidence(input: {
       totalCad: roundCad(liveQuote.totalCad),
       source: liveQuote.source,
       observedAt: input.observedAt,
+      candidateBinding,
     };
   }
 
   const calculation = input.calculation;
   const feesComplete = calculation?.allRequiredFeesKnown === true
     && calculation.fees.every((fee) => validCad(fee.amountCad) && typeof fee.taxable === "boolean");
-  if (calculation && validCad(calculation.subtotalCad) && feesComplete) {
+  if (candidateBinding && calculation && validCad(calculation.subtotalCad) && feesComplete) {
     const taxableFees = calculation.fees.reduce(
       (sum, fee) => sum + (fee.taxable ? fee.amountCad as number : 0),
       0,
@@ -190,6 +234,7 @@ export function resolveDominosPriceEvidence(input: {
       totalCad: roundCad(calculation.subtotalCad + feesCad + taxCad),
       source: PEI_HST_SOURCE,
       observedAt: input.observedAt,
+      candidateBinding,
     };
   }
 
@@ -202,6 +247,8 @@ export function resolveDominosPriceEvidence(input: {
     totalCad: null,
     source: input.liveQuote?.source ?? PEI_HST_SOURCE,
     observedAt: input.observedAt,
-    reason: "A complete official quote or every required pre-tax component and taxability was not known.",
+    reason: candidateBinding
+      ? "A complete official quote or every required pre-tax component and taxability was not known."
+      : "Price evidence was not bound to an exact candidate manifest.",
   };
 }

@@ -17,6 +17,7 @@ import type {
   DominosPriceEvidence,
   DominosServiceabilityResult,
 } from "./dominosServiceability";
+import { createDominosCandidatePriceBinding } from "./dominosServiceability";
 
 const FETCHED_AT = "2026-08-15T12:00:00.000Z";
 const COLLECTED_AT = "2026-08-15T12:01:00.000Z";
@@ -117,7 +118,7 @@ function input(overrides: Partial<GatherBiteInput> = {}): GatherBiteInput {
   };
 }
 
-function knownPrice(): DominosPriceEvidence {
+function knownPrice(forCandidate: DominosCandidate): DominosPriceEvidence {
   return {
     status: "KNOWN",
     kind: "TRUSTED_CALCULATION",
@@ -127,6 +128,7 @@ function knownPrice(): DominosPriceEvidence {
     totalCad: 17.24,
     source: "Complete official components and PEI HST",
     observedAt: FETCHED_AT,
+    candidateBinding: createDominosCandidatePriceBinding(forCandidate),
   };
 }
 
@@ -145,13 +147,14 @@ function context(
   mutate?: (value: CandidateEvidenceContext) => CandidateEvidenceContext,
 ): CandidateEvidenceContext {
   const liveSnapshot = snapshot();
+  const proposedCandidate = candidate();
   const value: CandidateEvidenceContext = {
     input: input(),
-    candidate: candidate(),
+    candidate: proposedCandidate,
     snapshot: liveSnapshot,
     catalog: buildDominosCatalog(liveSnapshot),
     serviceability: carryoutServiceability(),
-    priceEvidence: knownPrice(),
+    priceEvidence: knownPrice(proposedCandidate),
     collectedAt: COLLECTED_AT,
   };
   return mutate ? mutate(value) : value;
@@ -159,6 +162,17 @@ function context(
 
 function rebuild(value: CandidateEvidenceContext): CandidateEvidenceContext {
   return { ...value, catalog: buildDominosCatalog(value.snapshot) };
+}
+
+function replaceCandidate(
+  value: CandidateEvidenceContext,
+  proposedCandidate: DominosCandidate,
+): CandidateEvidenceContext {
+  return {
+    ...value,
+    candidate: proposedCandidate,
+    priceEvidence: knownPrice(proposedCandidate),
+  };
 }
 
 test("a fully grounded candidate returns six independent passing checks", async () => {
@@ -187,10 +201,10 @@ test("each hard check can independently prevent a passing evidence bundle", asyn
     {
       key: "menuIntegrity",
       expected: "FAIL",
-      make: () => context((value) => ({
-        ...value,
-        candidate: candidate({ pizzas: [pizza({ productCode: "NOT_LIVE" })] }),
-      })),
+      make: () => context((value) => replaceCandidate(
+        value,
+        candidate({ pizzas: [pizza({ productCode: "NOT_LIVE" })] }),
+      )),
     },
     {
       key: "dietary",
@@ -221,9 +235,11 @@ test("each hard check can independently prevent a passing evidence bundle", asyn
     {
       key: "serviceability",
       expected: "FAIL",
-      make: () => context((value) => ({
-        ...value,
-        input: input({
+      make: () => context((value) => {
+        const deliveryCandidate = candidate({ serviceMethod: "delivery" });
+        return {
+          ...replaceCandidate(value, deliveryCandidate),
+          input: input({
           serviceMethod: "delivery",
           deliveryAddress: {
             street: "10 Test Street",
@@ -232,16 +248,16 @@ test("each hard check can independently prevent a passing evidence bundle", asyn
             postalCode: "C1A 1A1",
           },
         }),
-        candidate: candidate({ serviceMethod: "delivery" }),
-        serviceability: {
+          serviceability: {
           status: "NOT_SERVICEABLE",
           applicability: "REQUIRED",
           storeIds: [],
           observedAt: FETCHED_AT,
           source: "Domino's official store-locator flow",
           reason: "No serviceable store was returned.",
-        },
-      })),
+          },
+        };
+      }),
     },
   ];
 
@@ -255,27 +271,31 @@ test("each hard check can independently prevent a passing evidence bundle", asyn
 });
 
 test("dietary evidence fails closed for MAY_CONTAIN and UNKNOWN crust facts", async () => {
-  const mayContain = await collectCandidateEvidence(context((value) => ({
-    ...value,
-    input: input({ groups: [{ id: "mustard", people: 1, restrictions: ["noMustard"] }] }),
-    candidate: candidate({
+  const mayContain = await collectCandidateEvidence(context((value) => {
+    const mayContainCandidate = candidate({
       pizzas: [pizza({
         sauceCode: "RANCH",
         toppings: [],
         protectsGroupIds: ["mustard"],
       })],
-    }),
-  })));
+    });
+    return {
+      ...replaceCandidate(value, mayContainCandidate),
+      input: input({ groups: [{ id: "mustard", people: 1, restrictions: ["noMustard"] }] }),
+    };
+  }));
   assert.equal(mayContain.checks.dietary.status, "FAIL");
   assert.match(JSON.stringify(mayContain.checks.dietary.facts), /MAY_CONTAIN/);
 
   const unknownCrust = await collectCandidateEvidence(context((value) => {
+    const unknownCandidate = candidate({
+      pizzas: [pizza({ crustCode: "MYSTERY", protectsGroupIds: ["gf"] })],
+    });
     const changed = {
       ...value,
       input: input({ groups: [{ id: "gf", people: 1, restrictions: ["glutenFriendly"] }] }),
-      candidate: candidate({
-        pizzas: [pizza({ crustCode: "MYSTERY", protectsGroupIds: ["gf"] })],
-      }),
+      candidate: unknownCandidate,
+      priceEvidence: knownPrice(unknownCandidate),
       snapshot: {
         ...value.snapshot,
         variants: value.snapshot.variants?.map((variant) => ({ ...variant, crustCode: "MYSTERY" })),
@@ -287,12 +307,87 @@ test("dietary evidence fails closed for MAY_CONTAIN and UNKNOWN crust facts", as
   assert.equal(unknownCrust.checks.dietary.status, "UNKNOWN");
 });
 
+test("every claimed protected line must itself be compatible even when another line covers the group", async () => {
+  const safe = pizza({ lineId: "safe", quantity: 1 });
+  const unsafe = pizza({
+    lineId: "unsafe",
+    quantity: 1,
+    toppings: [{ code: "P", quantity: 1 }],
+  });
+  const unsafeCandidate = candidate({ pizzas: [safe, unsafe] });
+  const unsafeEvidence = await collectCandidateEvidence(context((value) => ({
+    ...value,
+    candidate: unsafeCandidate,
+    priceEvidence: knownPrice(unsafeCandidate),
+  })));
+  assert.equal(unsafeEvidence.checks.dietary.status, "FAIL");
+  assert.match(JSON.stringify(unsafeEvidence.checks.dietary.facts), /CONTAINS/);
+
+  const mysterySnapshot: DominosStoreSnapshot = {
+    ...snapshot(),
+    variants: [
+      ...snapshot().variants!,
+      {
+        code: "MYSTERY_VARIANT",
+        productCode: "S_PIZZA",
+        sizeCode: "12",
+        crustCode: "MYSTERY",
+        priceCad: 14.99,
+        trustedSlices: 8,
+      },
+    ],
+    products: snapshot().products.map((product) => ({
+      ...product,
+      variantCodes: [...product.variantCodes, "MYSTERY_VARIANT"],
+    })),
+  };
+  const safeGf = pizza({
+    lineId: "safe-gf",
+    variantCode: "GF_VARIANT",
+    crustCode: "GLUTENFREE",
+    protectsGroupIds: ["gf"],
+  });
+  const unknownGf = pizza({
+    lineId: "unknown-gf",
+    variantCode: "MYSTERY_VARIANT",
+    crustCode: "MYSTERY",
+    protectsGroupIds: ["gf"],
+  });
+  mysterySnapshot.variants = [
+    ...mysterySnapshot.variants!,
+    {
+      code: "GF_VARIANT",
+      productCode: "S_PIZZA",
+      sizeCode: "12",
+      crustCode: "GLUTENFREE",
+      priceCad: 14.99,
+      trustedSlices: 8,
+    },
+  ];
+  mysterySnapshot.products = mysterySnapshot.products.map((product) => ({
+    ...product,
+    variantCodes: [...product.variantCodes, "GF_VARIANT"],
+  }));
+  const unknownCandidate = candidate({ pizzas: [safeGf, unknownGf] });
+  const unknownEvidence = await collectCandidateEvidence({
+    ...context(),
+    input: input({ groups: [{ id: "gf", people: 1, restrictions: ["glutenFriendly"] }] }),
+    candidate: unknownCandidate,
+    snapshot: mysterySnapshot,
+    catalog: buildDominosCatalog(mysterySnapshot),
+    priceEvidence: knownPrice(unknownCandidate),
+  });
+  assert.equal(unknownEvidence.checks.menuIntegrity.status, "PASS");
+  assert.equal(unknownEvidence.checks.dietary.status, "UNKNOWN");
+});
+
 test("stale snapshots and incomplete all-in price evidence remain UNKNOWN", async () => {
   const stale = await collectCandidateEvidence(context((value) => ({
     ...value,
     collectedAt: "2026-08-15T12:10:01.000Z",
   })));
   assert.equal(stale.checks.menuIntegrity.status, "UNKNOWN");
+  assert.equal(stale.checks.availability.status, "UNKNOWN");
 
   const unknownFee = await collectCandidateEvidence(context((value) => ({
     ...value,
@@ -311,11 +406,71 @@ test("stale snapshots and incomplete all-in price evidence remain UNKNOWN", asyn
   assert.equal(unknownFee.checks.budget.status, "UNKNOWN");
 });
 
-test("a known deal without proven variant eligibility remains UNKNOWN", async () => {
+test("stale applicable delivery serviceability cannot pass independently", async () => {
+  const deliveryCandidate = candidate({ serviceMethod: "delivery" });
   const evidence = await collectCandidateEvidence(context((value) => ({
     ...value,
-    candidate: candidate({ dealCodes: ["3021"] }),
+    input: input({
+      serviceMethod: "delivery",
+      deliveryAddress: {
+        street: "10 Test Street",
+        city: "Charlottetown",
+        province: "PE",
+        postalCode: "C1A 1A1",
+      },
+    }),
+    candidate: deliveryCandidate,
+    priceEvidence: knownPrice(deliveryCandidate),
+    serviceability: {
+      status: "SERVICEABLE",
+      applicability: "REQUIRED",
+      storeIds: ["10950"],
+      observedAt: "2026-08-15T11:50:00.000Z",
+      source: "Domino's official store-locator flow",
+      reason: "Serviceable when observed.",
+    },
   })));
+
+  assert.equal(evidence.checks.availability.status, "PASS");
+  assert.equal(evidence.checks.serviceability.status, "UNKNOWN");
+});
+
+test("price evidence is bound to the exact candidate manifest and compared in integer cents", async () => {
+  const originalCandidate = candidate();
+  const swappedCandidate = candidate({
+    candidateId: "candidate-2",
+    pizzas: [pizza({ toppings: [{ code: "P", quantity: 1 }] })],
+  });
+  const swapped = await collectCandidateEvidence(context((value) => ({
+    ...value,
+    candidate: swappedCandidate,
+    priceEvidence: knownPrice(originalCandidate),
+  })));
+  assert.equal(swapped.checks.budget.status, "FAIL");
+  assert.equal(swapped.checks.budget.code, "PRICE_EVIDENCE_MANIFEST_MISMATCH");
+
+  const oneCentDifferent = candidate({
+    expectedPricing: {
+      subtotalCad: 14.98,
+      taxCad: 2.25,
+      feesCad: 0,
+      totalCad: 17.24,
+    },
+  });
+  const cents = await collectCandidateEvidence(context((value) => ({
+    ...value,
+    candidate: oneCentDifferent,
+    priceEvidence: knownPrice(oneCentDifferent),
+  })));
+  assert.equal(cents.checks.budget.status, "FAIL");
+  assert.equal(cents.checks.budget.code, "CANDIDATE_PRICE_MISMATCH");
+});
+
+test("a known deal without proven variant eligibility remains UNKNOWN", async () => {
+  const evidence = await collectCandidateEvidence(context((value) => replaceCandidate(
+    value,
+    candidate({ dealCodes: ["3021"] }),
+  )));
 
   assert.equal(evidence.checks.menuIntegrity.status, "UNKNOWN");
   assert.match(evidence.checks.menuIntegrity.summary, /deal eligibility/i);

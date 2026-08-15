@@ -19,6 +19,7 @@ import type {
   DominosPriceEvidence,
   DominosServiceabilityResult,
 } from "./dominosServiceability";
+import { createDominosCandidatePriceBinding } from "./dominosServiceability";
 
 const MAX_SNAPSHOT_AGE_MS = 5 * 60 * 1000;
 const MAX_CLOCK_SKEW_MS = 30 * 1000;
@@ -68,12 +69,12 @@ interface DietaryFacts {
   lineEvaluations: DietaryLineEvaluation[];
 }
 
-function finiteNonNegative(value: number | null): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0;
-}
-
-function sameCad(left: number, right: number): boolean {
-  return Math.abs(left - right) < 0.01;
+function cadToCents(value: number | null): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return null;
+  const scaled = value * 100;
+  const rounded = Math.round(scaled);
+  if (!Number.isSafeInteger(rounded) || Math.abs(scaled - rounded) > 1e-7) return null;
+  return rounded;
 }
 
 function observationAge(fetchedAt: string, collectedAt: string): "CURRENT" | "STALE" | "INVALID" {
@@ -311,6 +312,29 @@ async function checkDietaryCoverage(context: CandidateEvidenceContext): Promise<
     };
   }
 
+  const claimedIncompatible = lineEvaluations.find(
+    ({ status }) => status === "CONTAINS" || status === "MAY_CONTAIN",
+  );
+  if (claimedIncompatible) {
+    return {
+      status: "FAIL",
+      code: "CLAIMED_DIETARY_PROTECTION_INCOMPATIBLE",
+      summary: `Protected line ${claimedIncompatible.lineId} is not compatible with claimed group ${claimedIncompatible.groupId}.`,
+      facts,
+      source: "Curated Domino's Canada dietary profiles and non-overlapping protected-slice allocation",
+    };
+  }
+  const claimedUnknown = lineEvaluations.find(({ status }) => status === "UNKNOWN");
+  if (claimedUnknown) {
+    return {
+      status: "UNKNOWN",
+      code: "CLAIMED_DIETARY_PROTECTION_UNKNOWN",
+      summary: `Protected line ${claimedUnknown.lineId} cannot be proven compatible with claimed group ${claimedUnknown.groupId}.`,
+      facts,
+      source: "Curated Domino's Canada dietary profiles and non-overlapping protected-slice allocation",
+    };
+  }
+
   const missingGroups = context.input.groups.filter((_, index) => allocation.groupAllocations[index]!.missingSlices > 0);
   if (missingGroups.length === 0) {
     return {
@@ -383,8 +407,44 @@ async function checkBudget(context: CandidateEvidenceContext): Promise<EvidenceC
       source,
     };
   }
-  const exactAmounts = [expected.subtotalCad, expected.taxCad, expected.feesCad, expected.totalCad];
-  if (!exactAmounts.every(finiteNonNegative)) {
+  const expectedBinding = createDominosCandidatePriceBinding(context.candidate);
+  if (evidence.candidateBinding !== expectedBinding) {
+    return {
+      status: "FAIL",
+      code: "PRICE_EVIDENCE_MANIFEST_MISMATCH",
+      summary: "The complete price evidence belongs to a different candidate manifest.",
+      facts: {
+        candidateId: context.candidate.candidateId,
+        candidateVersion: context.candidate.candidateVersion,
+        storeId: context.candidate.storeId,
+        snapshotVersion: context.candidate.snapshotVersion,
+        serviceMethod: context.candidate.serviceMethod,
+      },
+      source,
+    };
+  }
+  const verifiedCents = {
+    subtotal: cadToCents(evidence.subtotalCad),
+    tax: cadToCents(evidence.taxCad),
+    fees: cadToCents(evidence.feesCad),
+    total: cadToCents(evidence.totalCad),
+  };
+  if (Object.values(verifiedCents).some((value) => value === null)) {
+    return {
+      status: "UNKNOWN",
+      code: "INVALID_PRICE_EVIDENCE",
+      summary: "Complete price evidence could not be represented as exact Canadian-dollar cents.",
+      facts: { budgetCad: context.input.budgetCad },
+      source,
+    };
+  }
+  const expectedCents = {
+    subtotal: cadToCents(expected.subtotalCad),
+    tax: cadToCents(expected.taxCad),
+    fees: cadToCents(expected.feesCad),
+    total: cadToCents(expected.totalCad),
+  };
+  if (Object.values(expectedCents).some((value) => value === null)) {
     return {
       status: "FAIL",
       code: "CANDIDATE_PRICE_INCOMPLETE",
@@ -394,10 +454,10 @@ async function checkBudget(context: CandidateEvidenceContext): Promise<EvidenceC
     };
   }
   if (
-    !sameCad(expected.subtotalCad!, evidence.subtotalCad)
-    || !sameCad(expected.taxCad!, evidence.taxCad)
-    || !sameCad(expected.feesCad!, evidence.feesCad)
-    || !sameCad(expected.totalCad!, evidence.totalCad)
+    expectedCents.subtotal !== verifiedCents.subtotal
+    || expectedCents.tax !== verifiedCents.tax
+    || expectedCents.fees !== verifiedCents.fees
+    || expectedCents.total !== verifiedCents.total
   ) {
     return {
       status: "FAIL",
@@ -416,7 +476,17 @@ async function checkBudget(context: CandidateEvidenceContext): Promise<EvidenceC
       source,
     };
   }
-  if (evidence.totalCad > context.input.budgetCad) {
+  const budgetCents = cadToCents(context.input.budgetCad);
+  if (budgetCents === null) {
+    return {
+      status: "UNKNOWN",
+      code: "INVALID_BUDGET_PRECISION",
+      summary: "The organizer budget could not be represented as exact Canadian-dollar cents.",
+      facts: { budgetCad: context.input.budgetCad },
+      source,
+    };
+  }
+  if (verifiedCents.total! > budgetCents) {
     return {
       status: "FAIL",
       code: "BUDGET_EXCEEDED",
@@ -450,6 +520,15 @@ async function checkAvailability(context: CandidateEvidenceContext): Promise<Evi
     methodAvailable,
     waitMinutes: candidate.serviceMethod === "delivery" ? snapshot.deliveryWaitMinutes : snapshot.carryoutWaitMinutes,
   };
+  if (observationAge(snapshot.fetchedAt, context.collectedAt) !== "CURRENT") {
+    return {
+      status: "UNKNOWN",
+      code: "STORE_AVAILABILITY_STALE",
+      summary: "The store availability observation is no longer current enough for approval.",
+      facts,
+      source: "Domino's live public store profile",
+    };
+  }
   if (snapshot.isOpen === false || snapshot.isOnlineNow === false || methodAvailable === false) {
     return {
       status: "FAIL",
@@ -503,6 +582,15 @@ async function checkServiceability(context: CandidateEvidenceContext): Promise<E
       summary: "Address serviceability is not applicable to carryout.",
       facts,
       source: "Organizer service intent",
+    };
+  }
+  if (observationAge(serviceability.observedAt, context.collectedAt) !== "CURRENT") {
+    return {
+      status: "UNKNOWN",
+      code: "DELIVERY_SERVICEABILITY_STALE",
+      summary: "Delivery serviceability is no longer current enough for approval.",
+      facts,
+      source: "Domino's official store-locator flow",
     };
   }
   if (serviceability.status === "UNKNOWN") {
