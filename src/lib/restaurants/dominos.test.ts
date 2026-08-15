@@ -96,6 +96,8 @@ function fixtureSnapshot(overrides: Partial<DominosStoreSnapshot>): DominosStore
     carryoutWaitMinutes: { min: 11, max: 16 },
     deals: [{ code: "3021", name: "1 Medium 5 Topping Pizzas", price: 14.99, conditions: "Carryout,Delivery", slices: 8 }],
     products: [],
+    variants: [],
+    toppingOptions: [],
     fetchedAt: new Date().toISOString(),
     status: "ok",
     errors: [],
@@ -125,6 +127,10 @@ async function run() {
       JSON.stringify(snapshot.products[0]?.toppings) === JSON.stringify(["Alfredo Sauce", "Chicken"])
     );
     check("product price comes from its real default variant", snapshot.products[0]?.priceInfoIfAvailable === 10.99);
+    check("product retains exact default topping codes", JSON.stringify(snapshot.products[0]?.defaultToppingCodes) === JSON.stringify(["Xf", "D"]));
+    check("product retains exact variant codes", JSON.stringify(snapshot.products[0]?.variantCodes) === JSON.stringify(["PINPASCA"]));
+    check("variant is retained as configurable data", snapshot.variants?.[0]?.code === "PINPASCA" && snapshot.variants[0]?.priceCad === 10.99);
+    check("topping options retain exact codes and categories", snapshot.toppingOptions?.some((topping) => topping.code === "D" && topping.name === "Chicken" && topping.category === "Pasta") === true);
     check("no errors on a clean fetch", snapshot.errors.length === 0);
   }
 

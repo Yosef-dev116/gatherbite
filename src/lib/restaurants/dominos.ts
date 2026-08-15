@@ -94,8 +94,28 @@ export interface DominosProduct {
    * product has no default toppings data — NOT "no toppings verified
    * safe"; this is raw menu data, not a dietary claim. */
   toppings: string[] | null;
+  /** Exact live component codes. These are never reconstructed from names. */
+  defaultToppingCodes: readonly string[];
+  /** Exact live variant codes offered for this product. */
+  variantCodes: readonly string[];
   /** Real price from the product's default variant, if one exists. */
   priceInfoIfAvailable: number | null;
+}
+
+export interface DominosToppingOption {
+  code: string;
+  name: string;
+  category: string | null;
+}
+
+export interface DominosVariant {
+  code: string;
+  productCode: string | null;
+  sizeCode: string | null;
+  crustCode: string | null;
+  priceCad: number | null;
+  /** Trusted only when the variant itself contains explicit serving evidence. */
+  trustedSlices: number | null;
 }
 
 export type DominosSnapshotStatus = "ok" | "partial" | "failed";
@@ -112,6 +132,8 @@ export interface DominosStoreSnapshot {
   carryoutWaitMinutes: WaitMinutes | null;
   deals: DominosDeal[];
   products: DominosProduct[];
+  variants?: DominosVariant[];
+  toppingOptions?: DominosToppingOption[];
   fetchedAt: string;
   /** "ok" = both profile and menu fetched; "partial" = only one did;
    * "failed" = neither did. Callers must handle "partial"/"failed"
@@ -134,11 +156,15 @@ async function fetchJson(
   url: string,
   storeId: string,
   stage: DominosFetchStage,
-  onTiming?: DominosTimingObserver
+  onTiming?: DominosTimingObserver,
+  signal?: AbortSignal,
 ): Promise<unknown> {
   const startedAt = performance.now();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const abortFromCaller = () => controller.abort();
+  if (signal?.aborted) controller.abort();
+  signal?.addEventListener("abort", abortFromCaller, { once: true });
   try {
     const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) {
@@ -147,6 +173,7 @@ async function fetchJson(
     return await res.json();
   } finally {
     clearTimeout(timeout);
+    signal?.removeEventListener("abort", abortFromCaller);
     onTiming?.({ storeId, stage, durationMs: performance.now() - startedAt });
   }
 }
@@ -184,17 +211,19 @@ function extractDeals(menu: Record<string, unknown>): DominosDeal[] {
 
 /** Flattens menu.Toppings (grouped by category: Bread/Pasta/Pizza/...)
  * into a single topping-code -> real-name lookup. */
-function buildToppingIndex(toppings: unknown): Map<string, string> {
-  const index = new Map<string, string>();
-  if (!toppings || typeof toppings !== "object") return index;
-  for (const category of Object.values(toppings as Record<string, unknown>)) {
+function extractToppingOptions(toppings: unknown): DominosToppingOption[] {
+  const options: DominosToppingOption[] = [];
+  if (!toppings || typeof toppings !== "object") return options;
+  for (const [categoryName, category] of Object.entries(toppings as Record<string, unknown>)) {
     if (!category || typeof category !== "object") continue;
     for (const [code, info] of Object.entries(category as Record<string, unknown>)) {
       const name = (info as Record<string, unknown> | undefined)?.Name;
-      if (typeof name === "string" && name.length > 0) index.set(code, name);
+      if (typeof name === "string" && name.length > 0) {
+        options.push({ code, name, category: categoryName || null });
+      }
     }
   }
-  return index;
+  return options;
 }
 
 /** Parses a real DefaultToppings string like "K=1,J=1" (confirmed live
@@ -207,11 +236,11 @@ function parseToppingCodes(raw: unknown): string[] {
     .filter((code): code is string => !!code);
 }
 
-function extractProducts(menu: Record<string, unknown>): DominosProduct[] {
+function extractProducts(menu: Record<string, unknown>, toppingOptions: readonly DominosToppingOption[]): DominosProduct[] {
   const productsDict = menu?.Products;
   if (!productsDict || typeof productsDict !== "object") return [];
   const variantsDict = (menu?.Variants ?? {}) as Record<string, unknown>;
-  const toppingIndex = buildToppingIndex(menu?.Toppings);
+  const toppingIndex = new Map(toppingOptions.map((option) => [option.code, option.name]));
 
   return Object.values(productsDict as Record<string, unknown>).map((raw) => {
     const p = raw as Record<string, unknown>;
@@ -219,7 +248,9 @@ function extractProducts(menu: Record<string, unknown>): DominosProduct[] {
     const toppings = toppingCodes.length > 0 ? toppingCodes.map((code) => toppingIndex.get(code) ?? code) : null;
 
     const tags = p.Tags as Record<string, unknown> | undefined;
-    const variantCodes = Array.isArray(p.Variants) ? (p.Variants as unknown[]) : [];
+    const variantCodes = Array.isArray(p.Variants)
+      ? p.Variants.filter((code): code is string => typeof code === "string" && code.length > 0)
+      : [];
     const defaultVariantCode = (typeof tags?.DefaultVariant === "string" ? tags.DefaultVariant : undefined) ?? variantCodes[0];
     const variant =
       typeof defaultVariantCode === "string" ? (variantsDict[defaultVariantCode] as Record<string, unknown> | undefined) : undefined;
@@ -229,7 +260,46 @@ function extractProducts(menu: Record<string, unknown>): DominosProduct[] {
       name: typeof p.Name === "string" ? p.Name : "",
       category: typeof p.ProductType === "string" ? p.ProductType : null,
       toppings,
+      defaultToppingCodes: toppingCodes,
+      variantCodes,
       priceInfoIfAvailable: parsePrice(variant?.Price),
+    };
+  });
+}
+
+function directOrNestedCode(
+  raw: Record<string, unknown>,
+  directKey: string,
+  nestedKey: string,
+): string | null {
+  const direct = raw[directKey];
+  if (typeof direct === "string" && direct.length > 0) return direct;
+  const nested = raw[nestedKey];
+  if (!nested || typeof nested !== "object") return null;
+  const code = (nested as Record<string, unknown>).Code;
+  return typeof code === "string" && code.length > 0 ? code : null;
+}
+
+function extractVariants(menu: Record<string, unknown>, products: readonly DominosProduct[]): DominosVariant[] {
+  const variantsDict = menu?.Variants;
+  if (!variantsDict || typeof variantsDict !== "object") return [];
+
+  const productByVariant = new Map<string, string>();
+  for (const product of products) {
+    for (const variantCode of product.variantCodes) productByVariant.set(variantCode, product.id);
+  }
+
+  return Object.entries(variantsDict as Record<string, unknown>).map(([dictionaryCode, raw]) => {
+    const variant = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+    const code = typeof variant.Code === "string" && variant.Code.length > 0 ? variant.Code : dictionaryCode;
+    const tags = variant.Tags as Record<string, unknown> | undefined;
+    return {
+      code,
+      productCode: directOrNestedCode(variant, "ProductCode", "Product") ?? productByVariant.get(code) ?? null,
+      sizeCode: directOrNestedCode(variant, "SizeCode", "Size"),
+      crustCode: directOrNestedCode(variant, "CrustCode", "Crust"),
+      priceCad: parsePrice(variant.Price),
+      trustedSlices: parseDealSlices("", tags),
     };
   });
 }
@@ -243,14 +313,15 @@ function extractProducts(menu: Record<string, unknown>): DominosProduct[] {
  */
 export async function getDominosStoreSnapshot(
   storeId: string,
-  onTiming?: DominosTimingObserver
+  onTiming?: DominosTimingObserver,
+  signal?: AbortSignal,
 ): Promise<DominosStoreSnapshot> {
   const fetchedAt = new Date().toISOString();
   const errors: string[] = [];
 
   const [profileResult, menuResult] = await Promise.allSettled([
-    fetchJson(PROFILE_URL(storeId), storeId, "profile", onTiming),
-    fetchJson(MENU_URL(storeId), storeId, "menu", onTiming),
+    fetchJson(PROFILE_URL(storeId), storeId, "profile", onTiming, signal),
+    fetchJson(MENU_URL(storeId), storeId, "menu", onTiming, signal),
   ]);
 
   let profile: Record<string, unknown> | null = null;
@@ -269,6 +340,8 @@ export async function getDominosStoreSnapshot(
 
   const status: DominosSnapshotStatus = profile && menu ? "ok" : profile || menu ? "partial" : "failed";
   const serviceWaits = profile?.ServiceMethodEstimatedWaitMinutes as Record<string, unknown> | undefined;
+  const toppingOptions = menu ? extractToppingOptions(menu.Toppings) : [];
+  const products = menu ? extractProducts(menu, toppingOptions) : [];
 
   return {
     provider: "dominos",
@@ -281,7 +354,9 @@ export async function getDominosStoreSnapshot(
     deliveryWaitMinutes: parseWaitMinutes(serviceWaits?.Delivery),
     carryoutWaitMinutes: parseWaitMinutes(serviceWaits?.Carryout),
     deals: menu ? extractDeals(menu) : [],
-    products: menu ? extractProducts(menu) : [],
+    products,
+    variants: menu ? extractVariants(menu, products) : [],
+    toppingOptions,
     fetchedAt,
     status,
     errors,

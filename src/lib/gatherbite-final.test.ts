@@ -4,3 +4,6 @@
 import "./gatherbite/contracts.test";
 import "./gatherbite/events.test";
 import "./gatherbite/timing.test";
+import "./pricing/peiTax.test";
+import "./restaurants/dominosCatalog.test";
+import "./restaurants/dominosServiceability.test";
