@@ -224,5 +224,4 @@ docs/                      design specs, demo runbook, deployment checklist
 
 ## License
 
-No license file is currently included; all rights reserved by default. Add a license if you intend to
-allow reuse.
+[MIT](LICENSE) © 2026 Yosef Mekonnen
