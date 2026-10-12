@@ -16,6 +16,7 @@ import {
   evaluateGatherBite,
 } from "@/lib/gatherbite/orchestrator";
 import { createTimingCollector, type TimingEntry } from "@/lib/gatherbite/timing";
+import { jsonBodyErrorResponse, readJsonBody } from "@/lib/http/readJsonBody";
 
 export const runtime = "nodejs";
 
@@ -48,9 +49,9 @@ export function createGatherBiteStreamPostHandler(evaluator: StreamRouteEvaluato
   return async function post(request: Request): Promise<Response> {
     let body: unknown;
     try {
-      body = await request.json();
-    } catch {
-      return Response.json({ error: "Please check your inputs and try again." }, { status: 400 });
+      body = await readJsonBody(request);
+    } catch (error) {
+      return jsonBodyErrorResponse(error);
     }
 
     const parsed = GatherBiteInputSchema.safeParse(body);

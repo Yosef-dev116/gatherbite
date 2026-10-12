@@ -99,14 +99,14 @@ result is verified is never trusted at face value.
 
 ## Tests
 
-**527 passing, 0 failing**, across the ten suites in the `npm test` chain.
+**532 passing, 0 failing**, across the ten suites in the `npm test` chain.
 
 ```
 verify ................. 18      new-restrictions ...... 35
 scoring ................ 20      dominos ............... 84
 order-input-schema ..... 15      dominos-dietary ....... 47
 food-buffer ............ 28      gatherbite ............ 41
-add-buffer ............. 22      gatherbite-final ..... 217
+add-buffer ............. 22      gatherbite-final ..... 222
 ```
 
 The suites are behavioral rather than incidental: they assert that unknown data cannot be upgraded to a
@@ -122,7 +122,7 @@ listed above.
 
 | | |
 | --- | --- |
-| Framework | Next.js 16.3.1 (App Router) |
+| Framework | Next.js 16.4.0 (App Router) |
 | UI | React 19.2.8, Tailwind CSS 4 |
 | Language | TypeScript 5 |
 | Agents | Vercel AI SDK v7 (`ai`) — `ToolLoopAgent` |
@@ -221,6 +221,15 @@ src/
 agent/                     standalone tool-calling agent (eve runtime)
 docs/                      design specs, demo runbook, deployment checklist
 ```
+
+## Release status
+
+GatherBite is an installable web release candidate, not a native iOS build. The
+current live recommendation path also fails closed while official candidate-bound
+checkout pricing is unavailable. See the
+[production checklist](docs/deployment/gatherbite-production-checklist.md) and
+[App Store readiness assessment](docs/deployment/app-store-readiness.md) for the
+verified blockers and release path.
 
 ## License
 

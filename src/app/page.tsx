@@ -6,6 +6,7 @@ import type { CartEvent, CartPreparationUiState } from "@/components/CartPrepara
 import { EvaluationProgress } from "@/components/EvaluationProgress";
 import { GatherBiteResults, reduceDecisionState } from "@/components/GatherBiteResults";
 import { GroupRequirementsForm } from "@/components/GroupRequirementsForm";
+import { SiteFooter, SiteNav } from "@/components/SiteChrome";
 import { buildGuidedHandoff } from "@/lib/cart/dominosCartFallback";
 import type { CartPreparationResult } from "@/lib/cart/contracts";
 import {
@@ -260,45 +261,48 @@ export default function Home() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-7 px-4 py-8 sm:px-6 sm:py-12">
-      <header className="max-w-2xl">
-        <p className="eyebrow">GatherBite</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-5xl">
-          The AI agent that figures out how to feed your group.
-        </h1>
-        <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted sm:text-base">
-          Tell us what your group needs. GatherBite checks live public restaurant data and independently verifies the hard constraints before you decide.
-        </p>
-      </header>
+    <>
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-7 px-4 py-6 sm:px-6 sm:py-8">
+        <SiteNav />
 
-      <ol className="workflow-steps" aria-label="GatherBite workflow">
-        <li><span>1</span>Group requirements</li>
-        <li><span>2</span>Verified options</li>
-        <li><span>3</span>Your decision</li>
-      </ol>
+        <header className="max-w-2xl py-2 sm:py-5">
+          <p className="section-label">Verified group ordering</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-5xl">
+            Feed the whole group, without the guesswork.
+          </h1>
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted sm:text-base">
+            Share the hard constraints once. GatherBite checks live public restaurant data, tests every candidate, and leaves the final decision with you.
+          </p>
+        </header>
 
-      <GroupRequirementsForm busy={busy} onSubmit={evaluate} />
+        <ol className="workflow-steps" aria-label="GatherBite workflow">
+          <li><span>1</span>Group requirements</li>
+          <li><span>2</span>Verified options</li>
+          <li><span>3</span>Your decision</li>
+        </ol>
 
-      <button
+        <GroupRequirementsForm busy={busy} onSubmit={evaluate} />
+
+        <button
         type="button"
         onClick={showDemo}
         disabled={busy}
         className="self-start rounded-lg border border-dashed border-muted px-3 py-2 text-xs font-medium text-muted transition hover:border-foreground hover:text-foreground disabled:opacity-50"
-      >
-        View demo (simulated data, not a live order)
-      </button>
+        >
+          View demo (simulated data, not a live order)
+        </button>
 
-      {isDemo && (
+        {isDemo && (
         <p role="status" className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm font-semibold text-danger">
           DEMO MODE — this is simulated data for demonstration purposes only. It was not checked against live Domino&apos;s data or a live model, and no real order or cart was prepared.
         </p>
-      )}
+        )}
 
-      <EvaluationProgress events={events} busy={busy} />
+        <EvaluationProgress events={events} busy={busy} />
 
-      {error && <p role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger">{error}</p>}
+        {error && <p role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger">{error}</p>}
 
-      {evaluation && (
+        {evaluation && (
         <GatherBiteResults
           evaluation={evaluation}
           selectedCandidateId={decision.selectedCandidateId}
@@ -321,12 +325,17 @@ export default function Home() {
           }}
           cartPreparationState={cartPreparation}
         />
-      )}
+        )}
 
-      <p className="pb-3 text-center text-xs leading-relaxed text-muted">
-        Live public data can change. GatherBite does not claim a restaurant partnership or medical allergy safety, and never completes payment for you.
-        {input ? ` Last request: ${input.attendees} people.` : ""}
-      </p>
-    </main>
+        <aside className="trust-note" aria-label="Important ordering information">
+          <strong>You stay in control.</strong>
+          <span>
+            Live public data can change. GatherBite is not affiliated with a restaurant, does not guarantee medical allergy safety, and never completes payment.
+            {input ? ` Last request: ${input.attendees} people.` : ""}
+          </span>
+        </aside>
+      </main>
+      <SiteFooter />
+    </>
   );
 }

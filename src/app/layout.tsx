@@ -1,9 +1,34 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "GatherBite",
-  description: "The AI agent that figures out how to feed your group.",
+  metadataBase: new URL("https://gatherbite-hackathon-final.vercel.app"),
+  title: {
+    default: "GatherBite — Verified group ordering",
+    template: "%s · GatherBite",
+  },
+  description: "Plan a group food order with live restaurant data, independent constraint checks, and a human decision at checkout.",
+  applicationName: "GatherBite",
+  category: "food",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "GatherBite",
+  },
+  formatDetection: { telephone: false },
+  openGraph: {
+    type: "website",
+    siteName: "GatherBite",
+    title: "GatherBite — Verified group ordering",
+    description: "Group food-order planning that fails closed when hard constraints cannot be verified.",
+  },
+  robots: { index: true, follow: true },
+};
+
+export const viewport: Viewport = {
+  colorScheme: "light",
+  themeColor: "#d9531e",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

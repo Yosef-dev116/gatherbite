@@ -114,6 +114,7 @@ test("overlapping dietary-group counts are accepted and the JSON route returns D
     }),
   }));
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
   assert.equal(received[0]?.groups.length, 2);
   assert.match(response.headers.get("server-timing") ?? "", /total;dur=12.3;desc="GatherBite evaluation"/);
   assert.equal(JSON.stringify(await response.json()).includes("little-caesars"), false);
@@ -152,7 +153,28 @@ test("the JSON route redacts evidence facts the same way the stream route alread
 
 test("malformed JSON is a concise input error and never exposes parser text", async () => {
   const post = createGatherBitePostHandler(async () => empty);
-  const response = await post(new Request("http://localhost/api/gatherbite", { method: "POST", body: "{" }));
+  const response = await post(new Request("http://localhost/api/gatherbite", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: "{",
+  }));
   assert.equal(response.status, 400);
   assert.deepEqual(await response.json(), { error: "Please check your inputs and try again." });
+});
+
+test("oversized JSON is rejected before evaluation", async () => {
+  let calls = 0;
+  const post = createGatherBitePostHandler(async () => { calls += 1; return empty; });
+  const response = await post(new Request("http://localhost/api/gatherbite", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "content-length": "70000",
+    },
+    body: "{}",
+  }));
+
+  assert.equal(response.status, 413);
+  assert.equal(calls, 0);
+  assert.deepEqual(await response.json(), { error: "Request body is too large." });
 });

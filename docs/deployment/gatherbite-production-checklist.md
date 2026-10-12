@@ -221,15 +221,16 @@ It never leaves the organizer at a broken or ambiguous state:
 
 ## Final verification commands (run before judging)
 
-```powershell
+```bash
+npm ci
 npx tsc --noEmit
 npm run test
 npm run lint
 npm run build
+npm audit --omit=dev
 git diff --check
 ```
 
-`npm test` and `npx tsc --noEmit` were run fresh while writing this
-checklist: 205/205 tests passing, no type errors. `npm run lint` and
-`npm run build` were not re-run as part of writing this document — run them
-again before the final demo push.
+Record fresh results in the pull request. Do not treat the web build as an iOS
+binary; the separate [App Store readiness assessment](app-store-readiness.md)
+tracks native submission requirements and blockers.

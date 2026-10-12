@@ -118,7 +118,7 @@ export function GroupRequirementsForm({ busy, onSubmit }: GroupRequirementsFormP
     <form className="flex flex-col gap-5" onSubmit={submit} noValidate>
       <section className="form-card">
         <div>
-          <p className="eyebrow">Group requirements</p>
+          <p className="section-label">Group requirements</p>
           <h2 className="mt-1 text-xl font-semibold tracking-tight">What does your group need?</h2>
         </div>
 
@@ -185,9 +185,12 @@ export function GroupRequirementsForm({ busy, onSubmit }: GroupRequirementsFormP
 
       <section className="form-card">
         <div>
-          <p className="eyebrow">Dietary needs</p>
+          <p className="section-label">Dietary needs</p>
           <p className="mt-1 text-sm leading-relaxed text-muted">Add only what applies. Each need is verified independently from trusted evidence.</p>
         </div>
+        <p className="safety-note">
+          For severe allergies, confirm ingredients and cross-contact directly with the restaurant before ordering.
+        </p>
         {groups.map((group, index) => (
           <fieldset key={group.id} data-dietary-group={group.id} className="rounded-xl border border-border bg-background p-4">
             <legend className="px-1 text-sm font-semibold">Dietary need {index + 1}</legend>
@@ -227,7 +230,7 @@ export function GroupRequirementsForm({ busy, onSubmit }: GroupRequirementsFormP
 
       <section className="form-card">
         <div>
-          <p className="eyebrow">What does your group like?</p>
+          <p className="section-label">Food preferences</p>
           <p className="mt-1 text-sm leading-relaxed text-muted">
             Optional — pick any. GatherBite chooses the pizzas, quantities, deals, and configurations.
           </p>

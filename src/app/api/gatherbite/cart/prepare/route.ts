@@ -9,6 +9,7 @@ import {
   type PrepareCartDependencies,
 } from "@/lib/cart/prepareCart";
 import type { CartPreparationResult } from "@/lib/cart/contracts";
+import { jsonBodyErrorResponse, readJsonBody } from "@/lib/http/readJsonBody";
 
 export const runtime = "nodejs";
 
@@ -52,12 +53,9 @@ export function createCartPreparePostHandler(prepare: PrepareCartRouteHandler = 
   return async function post(request: Request): Promise<Response> {
     let body: unknown;
     try {
-      body = await request.json();
-    } catch {
-      return Response.json(
-        { error: "Please check your inputs and try again." },
-        { status: 400, headers: { "Cache-Control": "no-store" } },
-      );
+      body = await readJsonBody(request);
+    } catch (error) {
+      return jsonBodyErrorResponse(error);
     }
 
     const record = body !== null && typeof body === "object" ? body as Record<string, unknown> : {};
