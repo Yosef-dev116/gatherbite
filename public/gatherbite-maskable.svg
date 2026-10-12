@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">GatherBite maskable icon</title>
+  <rect width="512" height="512" fill="#d9531e"/>
+  <circle cx="256" cy="256" r="154" fill="#fff8f1"/>
+  <circle cx="212" cy="214" r="28" fill="#d9531e"/>
+  <circle cx="307" cy="229" r="28" fill="#d9531e"/>
+  <circle cx="266" cy="321" r="28" fill="#d9531e"/>
+</svg>

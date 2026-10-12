@@ -24,7 +24,7 @@ export async function readJsonBody(
   maxBytes = DEFAULT_MAX_JSON_BYTES,
 ): Promise<unknown> {
   const contentType = request.headers.get("content-type");
-  if (contentType && !isJsonMediaType(contentType)) {
+  if (!contentType || !isJsonMediaType(contentType)) {
     throw new JsonBodyError("Content-Type must be application/json.", 415);
   }
 

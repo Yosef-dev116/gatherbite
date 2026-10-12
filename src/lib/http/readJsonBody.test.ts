@@ -24,6 +24,16 @@ test("readJsonBody rejects unsupported media types", async () => {
   );
 });
 
+test("readJsonBody requires an explicit JSON content type", async () => {
+  await assert.rejects(
+    readJsonBody(new Request("https://example.test", {
+      method: "POST",
+      body: new TextEncoder().encode("{}"),
+    })),
+    (error: unknown) => error instanceof JsonBodyError && error.status === 415,
+  );
+});
+
 test("readJsonBody rejects a body once it crosses the byte limit", async () => {
   await assert.rejects(
     readJsonBody(new Request("https://example.test", {

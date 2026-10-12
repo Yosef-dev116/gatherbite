@@ -99,14 +99,14 @@ result is verified is never trusted at face value.
 
 ## Tests
 
-**532 passing, 0 failing**, across the ten suites in the `npm test` chain.
+**533 passing, 0 failing**, across the ten suites in the `npm test` chain.
 
 ```
 verify ................. 18      new-restrictions ...... 35
 scoring ................ 20      dominos ............... 84
 order-input-schema ..... 15      dominos-dietary ....... 47
 food-buffer ............ 28      gatherbite ............ 41
-add-buffer ............. 22      gatherbite-final ..... 222
+add-buffer ............. 22      gatherbite-final ..... 223
 ```
 
 The suites are behavioral rather than incidental: they assert that unknown data cannot be upgraded to a

@@ -5,8 +5,8 @@
   --foreground: #211b16;
   --surface: #ffffff;
   --border: #e7ddc9;
-  --muted: #7a7266;
-  --accent: #d9531e;
+  --muted: #6d655b;
+  --accent: #b53c12;
   --accent-foreground: #fff8f1;
   --accent-soft: #fbe6d8;
   --success: #2f6b3a;
@@ -181,7 +181,7 @@ label:has(input:focus-visible) {
   }
 
   .primary-action {
-    @apply min-h-11 items-center justify-center rounded-xl bg-accent px-6 py-4 text-base font-semibold text-accent-foreground shadow-sm transition-colors hover:bg-[#c04a1a] disabled:cursor-not-allowed disabled:opacity-50;
+    @apply min-h-11 items-center justify-center rounded-xl bg-accent px-6 py-4 text-base font-semibold text-accent-foreground shadow-sm transition-colors hover:bg-[#9f340f] disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .secondary-action {

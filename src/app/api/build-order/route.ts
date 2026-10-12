@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json(
-      { error: "The agent failed to build an order. Check server logs." },
+      { error: "The agent failed to build an order." },
       { status: 500, headers: { "Cache-Control": "no-store" } },
     );
   }
