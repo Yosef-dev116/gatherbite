@@ -30,7 +30,7 @@ function NoViableResult({ evaluation }: { evaluation: GatherBiteEvaluation }) {
   return (
     <section className="form-card" aria-labelledby="no-viable-heading">
       <div>
-        <p className="eyebrow">Verified options</p>
+        <p className="section-label">Verified options</p>
         <h2 id="no-viable-heading" className="mt-1 text-2xl font-semibold tracking-tight">No verified option yet</h2>
         <p className="mt-2 text-sm leading-relaxed text-muted">
           GatherBite stopped instead of guessing: {evaluation.noViableReason ?? "The available evidence could not prove every hard constraint."}

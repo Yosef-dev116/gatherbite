@@ -24,7 +24,7 @@ export function DecisionReview({
     <section id="your-decision" className="form-card decision-review scroll-mt-5" aria-labelledby="decision-heading">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="eyebrow">Your decision</p>
+          <p className="section-label">Your decision</p>
           <h2 id="decision-heading" className="mt-1 text-2xl font-semibold tracking-tight">Review the exact verified order</h2>
         </div>
         <span className="verified-pill">Selected · Verified</span>
