@@ -6,7 +6,7 @@ import type { CartEvent, CartPreparationUiState } from "@/components/CartPrepara
 import { EvaluationProgress } from "@/components/EvaluationProgress";
 import { GatherBiteResults, reduceDecisionState } from "@/components/GatherBiteResults";
 import { GroupRequirementsForm } from "@/components/GroupRequirementsForm";
-import { SiteFooter, SiteNav } from "@/components/SiteChrome";
+import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import { buildGuidedHandoff } from "@/lib/cart/dominosCartFallback";
 import type { CartPreparationResult } from "@/lib/cart/contracts";
 import {
@@ -262,9 +262,8 @@ export default function Home() {
 
   return (
     <>
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-7 px-4 py-6 sm:px-6 sm:py-8">
-        <SiteNav />
-
+      <SiteHeader />
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-7 px-4 pb-6 pt-7 sm:px-6 sm:pb-8 sm:pt-7">
         <header className="max-w-2xl py-2 sm:py-5">
           <p className="section-label">Verified group ordering</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-5xl">

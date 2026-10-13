@@ -166,7 +166,7 @@ function OptionCard({
     <article className={`result-option ${recommended ? "result-option-recommended" : ""} ${selected ? "result-option-selected" : ""}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="eyebrow">{recommended ? "GatherBite recommends" : "Verified alternative"}</p>
+          <p className="section-label">{recommended ? "GatherBite recommends" : "Verified alternative"}</p>
           <h3 className="mt-1 text-xl font-semibold tracking-tight">Domino&apos;s · Store {option.candidate.storeId}</h3>
           <p className="mt-1 whitespace-pre-line text-sm text-muted">
             {option.storeAddress ?? "Address unavailable from the live store observation"}
@@ -229,7 +229,7 @@ export function VerifiedOptions({
   return (
     <section className="flex flex-col gap-4" aria-labelledby="verified-options-heading">
       <div>
-        <p className="eyebrow">Verified options</p>
+        <p className="section-label">Verified options</p>
         <h2 id="verified-options-heading" className="mt-1 text-2xl font-semibold tracking-tight">Your best verified order</h2>
       </div>
 

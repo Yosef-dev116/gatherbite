@@ -109,7 +109,7 @@ label:has(input:focus-visible) {
   }
 
   .site-footer a {
-    @apply font-semibold text-foreground underline decoration-border underline-offset-4 hover:text-accent;
+    @apply font-semibold text-foreground underline decoration-muted/60 underline-offset-4 hover:text-accent;
   }
 
   .info-page {
@@ -241,7 +241,8 @@ label:has(input:focus-visible) {
   }
 
   .result-option-recommended {
-    @apply border-accent/60 shadow-[0_16px_42px_rgba(217,83,30,0.11)];
+    @apply border-accent/60;
+    box-shadow: 0 16px 42px color-mix(in srgb, var(--accent) 11%, transparent);
   }
 
   .result-option-selected {
@@ -349,7 +350,8 @@ label:has(input:focus-visible) {
   }
 
   .decision-review {
-    @apply border-2 border-accent shadow-[0_18px_50px_rgba(217,83,30,0.12)];
+    @apply border-2 border-accent;
+    box-shadow: 0 18px 50px color-mix(in srgb, var(--accent) 12%, transparent);
     animation: review-expand 220ms ease-out both;
   }
 }

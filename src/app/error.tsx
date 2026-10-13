@@ -5,10 +5,12 @@ import Link from "next/link";
 
 export default function ErrorPage({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  // `retry()` re-fetches and re-renders this segment. `reset()` only clears the
+  // boundary without re-fetching, so it cannot recover a failed server render.
+  retry: () => void;
 }) {
   useEffect(() => {
     console.error("GatherBite page error", error.digest ?? "unknown");
@@ -23,7 +25,7 @@ export default function ErrorPage({
           Your order has not been placed or paid for. Try the page again, or return home if the problem continues.
         </p>
         <div className="flex flex-wrap gap-3">
-          <button type="button" className="primary-action" onClick={reset}>Try again</button>
+          <button type="button" className="primary-action" onClick={() => retry()}>Try again</button>
           <Link href="/" className="secondary-action inline-flex">Return home</Link>
         </div>
       </section>

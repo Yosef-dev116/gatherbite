@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { SiteFooter, SiteNav } from "@/components/SiteChrome";
+import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 
 interface InfoPageProps {
   title: string;
@@ -11,8 +11,8 @@ interface InfoPageProps {
 export function InfoPage({ title, intro, children }: InfoPageProps) {
   return (
     <>
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8">
-        <SiteNav />
+      <SiteHeader />
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 pb-6 sm:px-6 sm:pb-8">
         <article className="info-page">
           <header>
             <p className="section-label">GatherBite</p>

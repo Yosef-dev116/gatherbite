@@ -23,7 +23,7 @@ export function EvaluationProgress({
     <section className="form-card evaluation-progress" aria-live="polite" aria-busy={busy}>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="eyebrow">GatherBite is working</p>
+          <p className="section-label">GatherBite is working</p>
           <h2 className="mt-1 text-lg font-semibold tracking-tight">
             {busy ? "Evaluating real options" : "Evaluation complete"}
           </h2>

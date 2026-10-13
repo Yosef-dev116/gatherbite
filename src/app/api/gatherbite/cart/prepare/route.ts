@@ -13,6 +13,16 @@ import { jsonBodyErrorResponse, readJsonBody } from "@/lib/http/readJsonBody";
 
 export const runtime = "nodejs";
 
+/**
+ * A selected candidate is the largest body any GatherBite route accepts, so
+ * this route raises the shared 64 KiB default. The bound is deliberate, not a
+ * guess: the largest body `DominosCandidateSchema` + `GatherBiteInputSchema`
+ * can accept is ~136 KiB (100 pizza lines at the schemas' maximum identifier
+ * and menu-code lengths), so no schema-valid request can be refused by the
+ * byte cap. `route.test.ts` pins that relationship.
+ */
+export const MAX_CART_PREPARE_JSON_BYTES = 192 * 1024;
+
 type CartEvent = Parameters<CartEventSink>[0];
 
 export type PrepareCartRouteHandler = (
@@ -53,7 +63,7 @@ export function createCartPreparePostHandler(prepare: PrepareCartRouteHandler = 
   return async function post(request: Request): Promise<Response> {
     let body: unknown;
     try {
-      body = await readJsonBody(request);
+      body = await readJsonBody(request, MAX_CART_PREPARE_JSON_BYTES);
     } catch (error) {
       return jsonBodyErrorResponse(error);
     }

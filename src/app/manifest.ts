@@ -8,7 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     display: "standalone",
     background_color: "#faf6ee",
-    theme_color: "#d9531e",
+    theme_color: "#b53c12",
     icons: [
       { src: "/icon", sizes: "512x512", type: "image/png", purpose: "any" },
       { src: "/gatherbite-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },

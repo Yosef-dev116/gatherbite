@@ -19,6 +19,19 @@ export function BrandLink() {
   );
 }
 
+/**
+ * The primary navigation belongs in a `banner` landmark, not inside `<main>`:
+ * a screen-reader user who jumps to `main` to skip the chrome should land on
+ * the page's own content.
+ */
+export function SiteHeader() {
+  return (
+    <header className="mx-auto w-full max-w-3xl px-4 pt-6 sm:px-6 sm:pt-8">
+      <SiteNav />
+    </header>
+  );
+}
+
 export function SiteNav() {
   return (
     <nav className="site-nav" aria-label="Primary navigation">

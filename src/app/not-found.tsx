@@ -1,12 +1,12 @@
 import Link from "next/link";
 
-import { SiteFooter, SiteNav } from "@/components/SiteChrome";
+import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 
 export default function NotFound() {
   return (
     <>
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8">
-        <SiteNav />
+      <SiteHeader />
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 pb-6 sm:px-6 sm:pb-8">
         <section className="empty-page">
           <p className="section-label">404</p>
           <h1>That page is not on the menu.</h1>

@@ -56,7 +56,10 @@ export function createGatherBiteStreamPostHandler(evaluator: StreamRouteEvaluato
 
     const parsed = GatherBiteInputSchema.safeParse(body);
     if (!parsed.success) {
-      return Response.json({ error: validationMessage(parsed.error) }, { status: 400 });
+      return Response.json(
+        { error: validationMessage(parsed.error) },
+        { status: 400, headers: { "Cache-Control": "no-store" } },
+      );
     }
 
     const evaluationController = new AbortController();

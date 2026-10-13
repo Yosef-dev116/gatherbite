@@ -104,6 +104,27 @@ production environment.
       an "Open Domino's with my order guide" action) for the organizer to
       finish manually on Domino's own site.
 
+## API request limits
+
+- [ ] Every `/api/*` route reaches a paid model call, so `src/proxy.ts` applies
+      a fixed-window counter (30 requests per minute per forwarded client,
+      `src/lib/http/rateLimit.ts`) and answers `429` with `Retry-After` beyond
+      it. Confirm after deploy: a loop against `/api/gatherbite` from one
+      client starts returning `429`, and page routes are unaffected.
+- [ ] **This is not real enforcement.** The window is per-instance in-memory,
+      so it resets on a cold start and does not coordinate across serverless
+      instances; the key is a client-supplied forwarding header, trustworthy
+      only behind a proxy that overwrites it. Configure platform/WAF rate
+      limiting in front of `/api/*` before treating quota drain as mitigated.
+- [ ] Request bodies are capped before parsing: 64 KiB on the evaluation
+      routes and 192 KiB on `/api/gatherbite/cart/prepare`, which carries a
+      selected candidate. The cart cap is calibrated above the largest body
+      its own schemas accept (~136 KiB) and pinned by
+      `src/app/api/gatherbite/cart/prepare/route.test.ts`, so raising
+      `MAX_CANDIDATE_PIZZA_LINES`, `MAX_IDENTIFIER_CHARS`, or
+      `MAX_MENU_CODE_CHARS` without re-checking that test will start
+      rejecting valid orders with `413`.
+
 ## Secret-scan checklist
 
 - [ ] Before any commit touching config/docs: `git status` and `git diff
