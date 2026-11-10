@@ -26,7 +26,7 @@ export function VerificationJourney({ journeys }: { journeys: readonly Candidate
   return (
     <section className="form-card" aria-labelledby="verification-journey-heading">
       <div>
-        <p className="eyebrow">The Magic Pass</p>
+        <p className="section-label">The Magic Pass</p>
         <h2 id="verification-journey-heading" className="mt-1 text-2xl font-semibold tracking-tight">
           {heading}
         </h2>

@@ -163,7 +163,7 @@ export default async function CompareDominosPage({
           <div className="flex justify-end">
             <button
               type="submit"
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:bg-[#c04a1a]"
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:bg-[#9f340f]"
             >
               Update
             </button>

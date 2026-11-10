@@ -11,6 +11,7 @@ import {
   evaluateGatherBite,
 } from "@/lib/gatherbite/orchestrator";
 import { createTimingCollector, type TimingEntry } from "@/lib/gatherbite/timing";
+import { jsonBodyErrorResponse, readJsonBody } from "@/lib/http/readJsonBody";
 
 export const runtime = "nodejs";
 
@@ -41,14 +42,17 @@ export function createGatherBitePostHandler(evaluator: RouteEvaluator = defaultE
   return async function post(request: Request): Promise<Response> {
     let body: unknown;
     try {
-      body = await request.json();
-    } catch {
-      return Response.json({ error: "Please check your inputs and try again." }, { status: 400 });
+      body = await readJsonBody(request);
+    } catch (error) {
+      return jsonBodyErrorResponse(error);
     }
 
     const parsed = GatherBiteInputSchema.safeParse(body);
     if (!parsed.success) {
-      return Response.json({ error: validationMessage(parsed.error) }, { status: 400 });
+      return Response.json(
+        { error: validationMessage(parsed.error) },
+        { status: 400, headers: { "Cache-Control": "no-store" } },
+      );
     }
 
     const timing = createTimingCollector();
@@ -59,11 +63,22 @@ export function createGatherBitePostHandler(evaluator: RouteEvaluator = defaultE
       // expose raw dietary/menu-integrity/budget facts the stream transport
       // treats as needing redaction.
       const redactedResult = redactFacts(result) as GatherBiteEvaluation;
-      return Response.json(redactedResult, { headers: { "Server-Timing": timing.serverTiming() } });
+      return Response.json(redactedResult, {
+        headers: {
+          "Cache-Control": "no-store",
+          "Server-Timing": timing.serverTiming(),
+        },
+      });
     } catch {
       return Response.json(
         { error: "GatherBite could not complete this evaluation." },
-        { status: 500, headers: { "Server-Timing": timing.serverTiming() } },
+        {
+          status: 500,
+          headers: {
+            "Cache-Control": "no-store",
+            "Server-Timing": timing.serverTiming(),
+          },
+        },
       );
     }
   };

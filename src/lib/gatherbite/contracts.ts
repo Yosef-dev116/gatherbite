@@ -18,8 +18,17 @@ export const DeliveryAddressSchema = z.object({
   postalCode: z.string().trim().toUpperCase().regex(/^[A-Z]\d[A-Z][ -]?\d[A-Z]\d$/),
 });
 
+/**
+ * Length bounds for client-supplied identifiers and restaurant menu codes.
+ * Counts alone (groups, pizza lines, toppings, deal codes) left the largest
+ * schema-valid request body unbounded, which made it impossible to tell
+ * whether a route's byte cap could reject a request its own schema accepts.
+ */
+export const MAX_IDENTIFIER_CHARS = 48;
+export const MAX_MENU_CODE_CHARS = 16;
+
 export const DietaryGroupSchema = z.object({
-  id: z.string().min(1),
+  id: z.string().min(1).max(MAX_IDENTIFIER_CHARS),
   people: z.number().int().min(1).max(200),
   restrictions: z.array(z.enum(ALL_RESTRICTIONS as [Restriction, ...Restriction[]])).min(1),
   notes: z.string().trim().max(200).optional(),
@@ -123,19 +132,20 @@ export interface CandidatePizza {
 const MAX_CANDIDATE_PIZZA_LINES = 100;
 const MAX_TOPPINGS_PER_CANDIDATE_LINE = 10;
 const MAX_CANDIDATE_DEAL_CODES = 200;
+const MAX_PROTECTED_GROUPS_PER_LINE = 10;
 
 export const CandidatePizzaSchema = z.object({
-  lineId: z.string().min(1),
+  lineId: z.string().min(1).max(MAX_IDENTIFIER_CHARS),
   quantity: z.number().int().min(1),
-  productCode: z.string().min(1),
-  variantCode: z.string().min(1),
-  sizeCode: z.string().min(1),
-  crustCode: z.string().min(1),
-  sauceCode: z.string().min(1).nullable(),
-  cheeseCode: z.string().min(1).nullable(),
-  toppings: z.array(z.object({ code: z.string().min(1), quantity: z.number().int().min(1) })).max(MAX_TOPPINGS_PER_CANDIDATE_LINE),
+  productCode: z.string().min(1).max(MAX_MENU_CODE_CHARS),
+  variantCode: z.string().min(1).max(MAX_MENU_CODE_CHARS),
+  sizeCode: z.string().min(1).max(MAX_MENU_CODE_CHARS),
+  crustCode: z.string().min(1).max(MAX_MENU_CODE_CHARS),
+  sauceCode: z.string().min(1).max(MAX_MENU_CODE_CHARS).nullable(),
+  cheeseCode: z.string().min(1).max(MAX_MENU_CODE_CHARS).nullable(),
+  toppings: z.array(z.object({ code: z.string().min(1).max(MAX_MENU_CODE_CHARS), quantity: z.number().int().min(1) })).max(MAX_TOPPINGS_PER_CANDIDATE_LINE),
   purpose: z.enum(["dietary-protected", "general"]),
-  protectsGroupIds: z.array(z.string().min(1)),
+  protectsGroupIds: z.array(z.string().min(1).max(MAX_IDENTIFIER_CHARS)).max(MAX_PROTECTED_GROUPS_PER_LINE),
   trustedSlicesPerPizza: z.number().int().positive(),
 });
 
@@ -156,12 +166,12 @@ export interface DominosCandidate {
 }
 
 export const DominosCandidateSchema = z.object({
-  candidateId: z.string().min(1),
+  candidateId: z.string().min(1).max(MAX_IDENTIFIER_CHARS),
   candidateVersion: z.number().int().min(1),
-  snapshotVersion: z.string().min(1),
-  storeId: z.string().min(1),
+  snapshotVersion: z.string().min(1).max(MAX_IDENTIFIER_CHARS),
+  storeId: z.string().min(1).max(MAX_MENU_CODE_CHARS),
   serviceMethod: z.enum(["delivery", "carryout"]),
-  dealCodes: z.array(z.string().min(1)).max(MAX_CANDIDATE_DEAL_CODES),
+  dealCodes: z.array(z.string().min(1).max(MAX_MENU_CODE_CHARS)).max(MAX_CANDIDATE_DEAL_CODES),
   pizzas: z.array(CandidatePizzaSchema).min(1).max(MAX_CANDIDATE_PIZZA_LINES),
   expectedPricing: z.object({
     subtotalCad: z.number().nonnegative().nullable(),

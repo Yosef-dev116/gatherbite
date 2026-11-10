@@ -5,8 +5,8 @@
   --foreground: #211b16;
   --surface: #ffffff;
   --border: #e7ddc9;
-  --muted: #7a7266;
-  --accent: #d9531e;
+  --muted: #6d655b;
+  --accent: #b53c12;
   --accent-foreground: #fff8f1;
   --accent-soft: #fbe6d8;
   --success: #2f6b3a;
@@ -36,10 +36,24 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   background-image: radial-gradient(circle at top, rgb(251 230 216 / 48%), transparent 32rem);
+  overflow-wrap: anywhere;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--foreground);
+}
+
+a,
+button,
+label,
+summary {
+  -webkit-tap-highlight-color: transparent;
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -56,12 +70,102 @@ label:has(input:focus-visible) {
     @apply flex flex-col gap-5 rounded-2xl border border-border bg-surface p-5 shadow-[0_14px_40px_rgba(69,45,25,0.06)] sm:p-6;
   }
 
-  .eyebrow {
+  .section-label {
     @apply text-xs font-semibold tracking-[0.16em] text-accent uppercase;
   }
 
+  .site-nav {
+    @apply flex min-h-11 items-center justify-between gap-4;
+  }
+
+  .site-nav a:not(.brand-link) {
+    @apply inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-muted transition-colors hover:bg-accent-soft hover:text-accent;
+  }
+
+  .brand-link {
+    @apply inline-flex min-h-11 items-center gap-2.5 rounded-lg text-lg font-bold tracking-tight text-foreground;
+  }
+
+  .brand-mark {
+    @apply relative grid h-9 w-9 place-items-center overflow-hidden rounded-full bg-accent;
+    transform: rotate(-7deg);
+  }
+
+  .brand-mark::before {
+    content: "";
+    @apply h-5 w-5 rounded-full bg-accent-foreground;
+  }
+
+  .brand-mark span {
+    @apply absolute h-1.5 w-1.5 rounded-full bg-accent;
+  }
+
+  .brand-mark span:nth-child(1) { transform: translate(-4px, -4px); }
+  .brand-mark span:nth-child(2) { transform: translate(5px, -2px); }
+  .brand-mark span:nth-child(3) { transform: translate(1px, 6px); }
+
+  .site-footer {
+    @apply mt-auto border-t border-border bg-surface/70 text-xs leading-relaxed text-muted;
+  }
+
+  .site-footer a {
+    @apply font-semibold text-foreground underline decoration-muted/60 underline-offset-4 hover:text-accent;
+  }
+
+  .info-page {
+    @apply mt-10 flex flex-col gap-8 rounded-2xl border border-border bg-surface p-5 shadow-[0_14px_40px_rgba(69,45,25,0.06)] sm:p-8;
+  }
+
+  .info-page header {
+    @apply border-b border-border pb-7;
+  }
+
+  .info-page h1,
+  .empty-page h1 {
+    @apply mt-2 text-3xl font-bold tracking-tight sm:text-4xl;
+  }
+
+  .info-page h2 {
+    @apply text-lg font-semibold tracking-tight;
+  }
+
+  .info-page section {
+    @apply flex flex-col gap-2;
+  }
+
+  .info-page section p,
+  .info-page li,
+  .info-intro,
+  .empty-page > p:not(.section-label) {
+    @apply text-sm leading-7 text-muted;
+  }
+
+  .info-page ul {
+    @apply list-disc space-y-2 pl-5;
+  }
+
+  .info-updated {
+    @apply border-t border-border pt-5 text-xs text-muted;
+  }
+
+  .empty-page {
+    @apply my-auto flex max-w-xl flex-col gap-5 py-16;
+  }
+
+  .trust-note {
+    @apply mb-2 flex flex-col gap-1 rounded-xl border border-border bg-surface px-4 py-3 text-xs leading-relaxed text-muted sm:flex-row sm:gap-2;
+  }
+
+  .trust-note strong {
+    @apply shrink-0 text-foreground;
+  }
+
+  .safety-note {
+    @apply rounded-xl border border-amber-700/20 bg-amber-50 px-3.5 py-3 text-sm leading-relaxed text-amber-950;
+  }
+
   .service-choice {
-    @apply cursor-pointer rounded-xl border border-border px-2 py-3 text-center text-sm font-semibold text-muted transition-colors hover:border-accent/50;
+    @apply flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-border px-2 py-3 text-center text-sm font-semibold text-muted transition-colors hover:border-accent/50;
   }
 
   .service-choice-selected {
@@ -69,7 +173,7 @@ label:has(input:focus-visible) {
   }
 
   .intent-chip {
-    @apply rounded-full border border-border px-3 py-2 text-sm font-medium text-muted transition-colors hover:border-accent/50;
+    @apply min-h-11 rounded-full border border-border px-3 py-2 text-sm font-medium text-muted transition-colors hover:border-accent/50;
   }
 
   .intent-chip-selected {
@@ -77,11 +181,11 @@ label:has(input:focus-visible) {
   }
 
   .primary-action {
-    @apply rounded-xl bg-accent px-6 py-4 text-base font-semibold text-accent-foreground shadow-sm transition-colors hover:bg-[#c04a1a] disabled:cursor-not-allowed disabled:opacity-50;
+    @apply min-h-11 items-center justify-center rounded-xl bg-accent px-6 py-4 text-base font-semibold text-accent-foreground shadow-sm transition-colors hover:bg-[#9f340f] disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .secondary-action {
-    @apply rounded-lg border border-accent px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent-soft;
+    @apply min-h-11 items-center justify-center rounded-lg border border-accent px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent-soft;
   }
 
   .workflow-steps {
@@ -137,7 +241,8 @@ label:has(input:focus-visible) {
   }
 
   .result-option-recommended {
-    @apply border-accent/60 shadow-[0_16px_42px_rgba(217,83,30,0.11)];
+    @apply border-accent/60;
+    box-shadow: 0 16px 42px color-mix(in srgb, var(--accent) 11%, transparent);
   }
 
   .result-option-selected {
@@ -245,7 +350,8 @@ label:has(input:focus-visible) {
   }
 
   .decision-review {
-    @apply border-2 border-accent shadow-[0_18px_50px_rgba(217,83,30,0.12)];
+    @apply border-2 border-accent;
+    box-shadow: 0 18px 50px color-mix(in srgb, var(--accent) 12%, transparent);
     animation: review-expand 220ms ease-out both;
   }
 }
